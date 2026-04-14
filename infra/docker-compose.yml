@@ -3,6 +3,36 @@
 
 services:
 
+  obligation-service:
+    build:
+      context: ../services/obligation-service
+      dockerfile: Dockerfile
+    container_name: reglens-obligation-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/reglens
+      SPRING_DATASOURCE_USERNAME: reglens
+      SPRING_DATASOURCE_PASSWORD: reglens_dev
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  reg-ingestion-service:
+    build:
+      context: ../services/reg-ingestion-service
+      dockerfile: Dockerfile
+    container_name: reglens-reg-ingestion-service
+    environment:
+      OBLIGATION_SERVICE_BASE_URL: http://obligation-service:8080
+    ports:
+      - "8000:8000"
+    depends_on:
+      obligation-service:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+
   postgres:
     image: postgres:16
     container_name: reglens-postgres

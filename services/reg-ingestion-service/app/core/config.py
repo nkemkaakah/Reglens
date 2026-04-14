@@ -6,6 +6,7 @@ class Settings(BaseSettings):
 
     app_name: str = "reg-ingestion-service"
     debug: bool = False
+    obligation_service_base_url: str = "http://localhost:8080"
 
 
 settings = Settings()
