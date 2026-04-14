@@ -1,0 +1,32 @@
+# RegLens local stack — extend as services are added.
+# From repo root: docker compose -f infra/docker-compose.yml up -d
+
+services:
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: reglens
+      POSTGRES_USER: reglens
+      POSTGRES_PASSWORD: reglens_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/seed.sql:/docker-entrypoint-initdb.d/seed.sql
+
+  # --- Coming in a later step ---
+  # kafka:
+  #   image: confluentinc/cp-kafka:7.6.0
+  #   ...
+
+  # mongodb:
+  #   image: mongo:7
+  #   ...
+
+  # redis:
+  #   image: redis:7-alpine
+  #   ...
+
+volumes:
+  postgres_data:
