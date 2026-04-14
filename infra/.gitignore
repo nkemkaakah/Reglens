@@ -1,0 +1,9 @@
+# Local secrets and overrides (never commit real credentials)
+.env
+.env.*
+!.env.example
+
+docker-compose.override.yml
+
+# Terraform working dir (if you add modules here later)
+.terraform/

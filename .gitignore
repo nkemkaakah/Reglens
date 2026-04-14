@@ -1,0 +1,93 @@
+# --- OS ---
+.DS_Store
+Thumbs.db
+
+# --- Environment & secrets ---
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.key
+secrets/
+
+# --- Logs ---
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# --- Dependencies & package managers ---
+node_modules/
+
+# --- Build & test outputs ---
+dist/
+build/
+out/
+coverage/
+.nyc_output/
+*.tsbuildinfo
+
+# --- Caches ---
+.cache/
+.turbo/
+.parcel-cache/
+*.eslintcache
+.stylelintcache
+
+# --- Python (services / tooling) ---
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+.venv/
+venv/
+.envrc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+.eggs/
+
+# --- Go (future services) ---
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+vendor/
+
+# --- Rust (future tooling) ---
+target/
+
+# --- Terraform / IaC ---
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+override.tf
+*_override.tf
+
+# --- Docker (local overrides; keep committed compose files) ---
+docker-compose.override.yml
+**/docker-compose.override.yml
+
+# --- IDE & editors ---
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+**/.vscode/*
+!**/.vscode/extensions.json
+
+# --- Local DB / dumps (keep tracked SQL under version control intentionally) ---
+*.sql.backup
+*.dump
