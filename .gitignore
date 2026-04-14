@@ -91,3 +91,6 @@ docker-compose.override.yml
 # --- Local DB / dumps (keep tracked SQL under version control intentionally) ---
 *.sql.backup
 *.dump
+
+# --- Local / private planning (not shared in repo) ---
+docs/IMPLEMENTATION_PLAN.md
