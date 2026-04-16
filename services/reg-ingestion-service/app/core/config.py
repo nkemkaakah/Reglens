@@ -3,7 +3,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 LLM_MODEL = "claude-haiku-4-5"
-LLM_MAX_OUTPUT_TOKENS = 4096
+LLM_MAX_OUTPUT_TOKENS = 8192
 
 
 class Settings(BaseSettings):

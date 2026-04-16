@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 _MAX_UPLOAD_BYTES = 15 * 1024 * 1024
-_CHUNK_MAX_CHARS = 24_000
+_CHUNK_MAX_CHARS = 16_000
 
 _ALLOWED_RISK = frozenset({"LOW", "MEDIUM", "HIGH", "CRITICAL"})
 _ALLOWED_STATUS = frozenset({"UNMAPPED", "IN_PROGRESS", "MAPPED", "IMPLEMENTED"})
@@ -58,6 +58,48 @@ class _LlmObligationItem(BaseModel):
 
 class _LlmObligationEnvelope(BaseModel):
     obligations: list[_LlmObligationItem]
+
+
+# JSON schema for Claude structured outputs (output_config.format).
+# All object properties are required; nullables use anyOf per API constraints.
+_OBLIGATION_JSON_SCHEMA: dict[str, object] = {
+    "type": "object",
+    "properties": {
+        "obligations": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "ref": {"type": "string"},
+                    "title": {"type": "string"},
+                    "summary": {"type": "string"},
+                    "fullText": {"type": "string"},
+                    "sectionRef": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+                    "topics": {"type": "array", "items": {"type": "string"}},
+                    "aiPrinciples": {"type": "array", "items": {"type": "string"}},
+                    "riskRating": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+                    "effectiveDate": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+                    "status": {"type": "string"},
+                },
+                "required": [
+                    "ref",
+                    "title",
+                    "summary",
+                    "fullText",
+                    "sectionRef",
+                    "topics",
+                    "aiPrinciples",
+                    "riskRating",
+                    "effectiveDate",
+                    "status",
+                ],
+                "additionalProperties": False,
+            },
+        }
+    },
+    "required": ["obligations"],
+    "additionalProperties": False,
+}
 
 
 async def _read_upload_with_limit(upload: UploadFile) -> tuple[bytes, str]:
@@ -158,34 +200,13 @@ def _plain_text_from_bytes(body: bytes, filename: str, content_type: str | None)
 
 
 def _split_text_into_chunks(text: str, max_chars: int = _CHUNK_MAX_CHARS) -> list[str]:
-    """Split plain text into fixed-size character slices (default 24k)."""
+    """Split plain text into fixed-size character slices (default 16k)."""
     normalized = text.strip()
     if not normalized:
         return []
     if len(normalized) <= max_chars:
         return [normalized]
     return [normalized[i : i + max_chars] for i in range(0, len(normalized), max_chars)]
-
-
-def _parse_json_envelope(raw_text: str) -> _LlmObligationEnvelope:
-    cleaned = raw_text.strip()
-    if cleaned.startswith("```"):
-        cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned, flags=re.IGNORECASE)
-        cleaned = re.sub(r"\s*```$", "", cleaned).strip()
-    try:
-        data = json.loads(cleaned)
-    except json.JSONDecodeError as exc:
-        raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Model returned invalid JSON for obligations extraction.",
-        ) from exc
-    try:
-        return _LlmObligationEnvelope.model_validate(data)
-    except ValidationError as exc:
-        raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Model JSON did not match expected schema: {exc}",
-        ) from exc
 
 
 def _parse_optional_date(value: str | None) -> date | None:
@@ -256,15 +277,13 @@ async def _complete_chat_for_structured_obligations(
         )
 
     system = (
-        "You are a regulatory compliance analyst. Extract discrete obligations from the given "
-        "document chunk. Each obligation must be a concrete, reviewable requirement.\n"
-        "Return JSON ONLY with this shape:\n"
-        '{"obligations":[{"ref":"ignored-by-server","title":"string","summary":"plain-language summary",'
-        '"fullText":"verbatim or lightly edited quote from the chunk","sectionRef":"string or null",'
-        '"topics":["string"],"aiPrinciples":["string"],"riskRating":"LOW|MEDIUM|HIGH|CRITICAL|null",'
-        '"effectiveDate":"YYYY-MM-DD|null","status":"UNMAPPED"}]}\n'
-        "Use camelCase keys exactly as shown. The ref field is ignored — stable refs are assigned server-side.\n"
-        "If the chunk has no obligations, return {\"obligations\":[]}."
+        "You are a regulatory compliance analyst. "
+        "Extract discrete, reviewable obligations from the provided document chunk. "
+        "Each obligation must be a concrete requirement with a clear owner or action. "
+        "If the chunk contains no obligations, return an empty obligations array. "
+        "Use riskRating as one of: LOW, MEDIUM, HIGH, CRITICAL, or null. "
+        "Use effectiveDate as YYYY-MM-DD string or null. "
+        "The ref field is replaced server-side — any non-empty string is acceptable."
     )
     user = (
         f"Document title: {document_title}\n"
@@ -279,6 +298,12 @@ async def _complete_chat_for_structured_obligations(
             max_tokens=LLM_MAX_OUTPUT_TOKENS,
             system=system,
             messages=[{"role": "user", "content": user}],
+            output_config={
+                "format": {
+                    "type": "json_schema",
+                    "schema": _OBLIGATION_JSON_SCHEMA,
+                }
+            },
         )
     except anthropic.APIError as exc:
         raise HTTPException(
@@ -286,17 +311,40 @@ async def _complete_chat_for_structured_obligations(
             detail=f"Upstream language model error: {exc}",
         ) from exc
 
+    if message.stop_reason == "refusal":
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Model refused to extract obligations for this content.",
+        )
+    if message.stop_reason == "max_tokens":
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY,
+            detail="Model hit token limit during extraction — try a smaller chunk or increase LLM_MAX_OUTPUT_TOKENS.",
+        )
+
     parts: list[str] = []
     for block in message.content:
         if block.type == "text":
             parts.append(block.text)
-    combined = "".join(parts).strip()
-    if not combined:
+    text = "".join(parts).strip()
+    if not text:
         raise HTTPException(
             status.HTTP_502_BAD_GATEWAY,
             detail="Empty response from language model.",
         )
-    envelope = _parse_json_envelope(combined)
+    try:
+        data = json.loads(text)
+        envelope = _LlmObligationEnvelope.model_validate(data)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Model returned invalid JSON for obligations extraction.",
+        ) from exc
+    except ValidationError as exc:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Model JSON did not match expected schema: {exc}",
+        ) from exc
     return envelope.obligations
 
 
