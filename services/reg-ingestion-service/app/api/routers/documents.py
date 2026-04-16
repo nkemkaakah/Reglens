@@ -2,27 +2,62 @@
 Document ingest + preview routes (Feature 1 — FastAPI side).
 
 Browser or SPA posts multipart form data here; this service registers the document in
-obligation-service, runs the stub pipeline, then bulk-writes obligations — all over HTTP.
+obligation-service, runs text extraction + an LLM pass per chunk, then bulk-writes obligations.
 """
 
 from __future__ import annotations
 
+import json
+import logging
 import re
+from datetime import date
+from io import BytesIO
 from pathlib import Path
 from uuid import UUID, uuid4
 
+import anthropic
 import httpx
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
+from pypdf import PdfReader
+from pypdf.errors import PdfReadError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from urllib.parse import urlparse
 
-from app.api.deps import ObligationClientDep
-from app.schemas.documents import DocumentCreate, IngestResponse, ObligationResponse
-from app.services.stub_pipeline import build_stub_obligations, slug_document_ref_prefix
+from app.api.deps import AnthropicClientDep, ObligationClientDep
+from app.core.config import LLM_MAX_OUTPUT_TOKENS, LLM_MODEL, settings
+from app.schemas.documents import DocumentCreate, IngestResponse, ObligationCreate, ObligationResponse
+from app.services.stub_pipeline import slug_document_ref_prefix
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# Guardrail for accidental huge PDFs during local dev — tune when streaming to object storage.
 _MAX_UPLOAD_BYTES = 15 * 1024 * 1024
+_CHUNK_MAX_CHARS = 24_000
+
+_ALLOWED_RISK = frozenset({"LOW", "MEDIUM", "HIGH", "CRITICAL"})
+_ALLOWED_STATUS = frozenset({"UNMAPPED", "IN_PROGRESS", "MAPPED", "IMPLEMENTED"})
+
+
+class _LlmObligationItem(BaseModel):
+    """One obligation object as returned inside the model JSON envelope."""
+
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    ref: str
+    title: str
+    summary: str
+    full_text: str = Field(alias="fullText")
+    section_ref: str | None = Field(default=None, alias="sectionRef")
+    topics: list[str] | None = None
+    ai_principles: list[str] | None = Field(default=None, alias="aiPrinciples")
+    risk_rating: str | None = Field(default=None, alias="riskRating")
+    effective_date: str | None = Field(default=None, alias="effectiveDate")
+    status: str | None = None
+
+
+class _LlmObligationEnvelope(BaseModel):
+    obligations: list[_LlmObligationItem]
 
 
 async def _read_upload_with_limit(upload: UploadFile) -> tuple[bytes, str]:
@@ -51,14 +86,293 @@ def _normalise_whitespace(value: str | None) -> str | None:
     return stripped or None
 
 
+async def _read_url_body(url: str) -> tuple[bytes, str | None]:
+    """Fetch remote document bytes with size cap (mirrors upload guardrail)."""
+    async with httpx.AsyncClient(follow_redirects=True) as client:
+        async with client.stream("GET", url) as response:
+            response.raise_for_status()
+            content_type = response.headers.get("content-type")
+            chunks: list[bytes] = []
+            total = 0
+            async for block in response.aiter_bytes():
+                total += len(block)
+                if total > _MAX_UPLOAD_BYTES:
+                    raise HTTPException(
+                        status.HTTP_413_CONTENT_TOO_LARGE,
+                        detail=f"Downloaded content exceeds maximum size of {_MAX_UPLOAD_BYTES // (1024 * 1024)} MiB",
+                    )
+                chunks.append(block)
+            return b"".join(chunks), content_type
+
+
+def _decode_text_lossy(body: bytes) -> str:
+    return body.decode("utf-8", errors="replace")
+
+
+def _strip_html_to_text(html: str) -> str:
+    without_tags = re.sub(r"<[^>]+>", " ", html)
+    return re.sub(r"\s+", " ", without_tags).strip()
+
+
+def _plain_text_from_bytes(body: bytes, filename: str, content_type: str | None) -> str:
+    """Turn raw bytes into plain text suitable for chunking (PDF, text, crude HTML)."""
+    name = (filename or "").lower()
+    ct = (content_type or "").lower()
+
+    if name.endswith(".pdf") or "application/pdf" in ct:
+        try:
+            reader = PdfReader(BytesIO(body))
+            parts: list[str] = []
+            for page in reader.pages:
+                parts.append(page.extract_text() or "")
+            text = "\n".join(parts).strip()
+        except PdfReadError as exc:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Could not read PDF — file may be corrupt or not a valid PDF.",
+            ) from exc
+        if not text:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="No extractable text found in PDF (empty or image-only).",
+            )
+        return text
+
+    if "html" in ct or name.endswith((".html", ".htm")):
+        raw = _decode_text_lossy(body)
+        stripped = _strip_html_to_text(raw)
+        if not stripped:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="No extractable text found in HTML.",
+            )
+        return stripped
+
+    text = _decode_text_lossy(body).strip()
+    if not text:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="No extractable text found in uploaded file.",
+        )
+    return text
+
+
+def _split_text_into_chunks(text: str, max_chars: int = _CHUNK_MAX_CHARS) -> list[str]:
+    """Split plain text into fixed-size character slices (default 24k)."""
+    normalized = text.strip()
+    if not normalized:
+        return []
+    if len(normalized) <= max_chars:
+        return [normalized]
+    return [normalized[i : i + max_chars] for i in range(0, len(normalized), max_chars)]
+
+
+def _parse_json_envelope(raw_text: str) -> _LlmObligationEnvelope:
+    cleaned = raw_text.strip()
+    if cleaned.startswith("```"):
+        cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(r"\s*```$", "", cleaned).strip()
+    try:
+        data = json.loads(cleaned)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Model returned invalid JSON for obligations extraction.",
+        ) from exc
+    try:
+        return _LlmObligationEnvelope.model_validate(data)
+    except ValidationError as exc:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Model JSON did not match expected schema: {exc}",
+        ) from exc
+
+
+def _parse_optional_date(value: str | None) -> date | None:
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(value.strip()[:10])
+    except ValueError:
+        return None
+
+
+def _normalize_risk(value: str | None) -> str | None:
+    if not value:
+        return None
+    upper = value.strip().upper()
+    return upper if upper in _ALLOWED_RISK else None
+
+
+def _normalize_status(value: str | None) -> str:
+    if not value:
+        return "UNMAPPED"
+    upper = value.strip().upper()
+    return upper if upper in _ALLOWED_STATUS else "UNMAPPED"
+
+
+def _stable_row_ref(*, document_ref: str, chunk_index: int, row_index: int) -> str:
+    base = slug_document_ref_prefix(document_ref)
+    token = uuid4().hex[:8].upper()
+    return f"{base}-C{chunk_index:03d}-R{row_index:03d}-{token}"
+
+
+def _llm_item_to_obligation_create(
+    *,
+    document_id: UUID,
+    document_ref: str,
+    chunk_index: int,
+    row_index: int,
+    item: _LlmObligationItem,
+) -> ObligationCreate:
+    return ObligationCreate(
+        document_id=document_id,
+        ref=_stable_row_ref(document_ref=document_ref, chunk_index=chunk_index, row_index=row_index),
+        title=item.title.strip(),
+        summary=item.summary.strip(),
+        full_text=item.full_text.strip(),
+        section_ref=item.section_ref.strip() if item.section_ref else None,
+        topics=item.topics,
+        ai_principles=item.ai_principles,
+        risk_rating=_normalize_risk(item.risk_rating),
+        effective_date=_parse_optional_date(item.effective_date),
+        status=_normalize_status(item.status),
+    )
+
+
+async def _complete_chat_for_structured_obligations(
+    *,
+    chunk_text: str,
+    chunk_index: int,
+    regulator: str,
+    document_title: str,
+    anthropic_client: anthropic.AsyncAnthropic,
+) -> list[_LlmObligationItem]:
+    """Call the configured chat model and parse structured obligations JSON for one chunk."""
+    if not settings.llm_api_key.strip():
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="LLM is not configured: set LLM_API_KEY or ANTHROPIC_API_KEY.",
+        )
+
+    system = (
+        "You are a regulatory compliance analyst. Extract discrete obligations from the given "
+        "document chunk. Each obligation must be a concrete, reviewable requirement.\n"
+        "Return JSON ONLY with this shape:\n"
+        '{"obligations":[{"ref":"ignored-by-server","title":"string","summary":"plain-language summary",'
+        '"fullText":"verbatim or lightly edited quote from the chunk","sectionRef":"string or null",'
+        '"topics":["string"],"aiPrinciples":["string"],"riskRating":"LOW|MEDIUM|HIGH|CRITICAL|null",'
+        '"effectiveDate":"YYYY-MM-DD|null","status":"UNMAPPED"}]}\n'
+        "Use camelCase keys exactly as shown. The ref field is ignored — stable refs are assigned server-side.\n"
+        "If the chunk has no obligations, return {\"obligations\":[]}."
+    )
+    user = (
+        f"Document title: {document_title}\n"
+        f"Regulator context: {regulator}\n"
+        f"Chunk index: {chunk_index}\n\n"
+        f"---\n{chunk_text}\n---"
+    )
+
+    try:
+        message = await anthropic_client.messages.create(
+            model=LLM_MODEL,
+            max_tokens=LLM_MAX_OUTPUT_TOKENS,
+            system=system,
+            messages=[{"role": "user", "content": user}],
+        )
+    except anthropic.APIError as exc:
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY,
+            detail=f"Upstream language model error: {exc}",
+        ) from exc
+
+    parts: list[str] = []
+    for block in message.content:
+        if block.type == "text":
+            parts.append(block.text)
+    combined = "".join(parts).strip()
+    if not combined:
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY,
+            detail="Empty response from language model.",
+        )
+    envelope = _parse_json_envelope(combined)
+    return envelope.obligations
+
+
+async def collect_structured_obligations_from_source(
+    *,
+    regulator: str,
+    document_title: str,
+    source_body: bytes,
+    source_label: str,
+    content_type: str | None,
+    anthropic_client: anthropic.AsyncAnthropic,
+) -> list[tuple[int, _LlmObligationItem]]:
+    """
+    Bytes → plain text → chunks → model. Returns (chunk_index, item) pairs in order.
+
+    Runs **before** persisting the document so a failed extraction does not orphan a `documents` row.
+    Exposed at module scope so tests can monkeypatch without calling a real model.
+    """
+    plain = _plain_text_from_bytes(source_body, filename=source_label, content_type=content_type)
+    chunks = _split_text_into_chunks(plain)
+    logger.info(
+        "extraction: plain_text chars=%s chunks=%s label=%s",
+        len(plain),
+        len(chunks),
+        source_label[:120] if source_label else "",
+    )
+    pairs: list[tuple[int, _LlmObligationItem]] = []
+    for idx, chunk in enumerate(chunks):
+        items = await _complete_chat_for_structured_obligations(
+            chunk_text=chunk,
+            chunk_index=idx,
+            regulator=regulator,
+            document_title=document_title,
+            anthropic_client=anthropic_client,
+        )
+        for item in items:
+            pairs.append((idx, item))
+    if not pairs:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="No obligations extracted — try a richer document or adjust the model prompt.",
+        )
+    logger.info("extraction: structured obligation rows=%s", len(pairs))
+    return pairs
+
+
+def map_collected_items_to_creates(
+    *,
+    document_id: UUID,
+    document_ref: str,
+    pairs: list[tuple[int, _LlmObligationItem]],
+) -> list[ObligationCreate]:
+    """Attach persisted document id/refs to structured rows for Spring batch create."""
+    out: list[ObligationCreate] = []
+    for row_index, (chunk_index, item) in enumerate(pairs):
+        out.append(
+            _llm_item_to_obligation_create(
+                document_id=document_id,
+                document_ref=document_ref,
+                chunk_index=chunk_index,
+                row_index=row_index,
+                item=item,
+            )
+        )
+    return out
+
+
 @router.post(
     "",
     response_model=IngestResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Upload (or URL) + stub extraction",
+    summary="Upload (or URL) + LLM obligation extraction",
 )
 async def ingest_document(
     client: ObligationClientDep,
+    anthropic_client: AnthropicClientDep,
     file: UploadFile | None = File(None, description="PDF or text file to ingest"),
     source_url: str | None = Form(None, description="Optional regulatory URL when no file is attached"),
     ref: str | None = Form(None, description="Stable document code — generated from filename if omitted"),
@@ -70,7 +384,7 @@ async def ingest_document(
     """
     Accepts multipart form: optional `file`, optional `source_url`, plus metadata fields.
 
-    At least one of `file` or `source_url` must be present so the stub has a realistic context label.
+    At least one of `file` or `source_url` must be present.
     """
     url_clean = _normalise_whitespace(source_url)
     if file is None and url_clean is None:
@@ -79,20 +393,23 @@ async def ingest_document(
             detail="Provide a `file` upload and/or a `source_url` form field.",
         )
 
-    context_label: str
     default_ref: str
     default_title: str
+    source_body: bytes
+    source_label: str
+    content_type: str | None
 
     if file is not None:
-        _body, fname = await _read_upload_with_limit(file)
-        context_label = fname
-        stem = Path(fname).stem or "upload"
+        source_body, source_label = await _read_upload_with_limit(file)
+        content_type = file.content_type
+        stem = Path(source_label).stem or "upload"
         default_ref = f"{slug_document_ref_prefix(stem)}-{uuid4().hex[:6].upper()}"
         default_title = re.sub(r"[_-]+", " ", stem).strip() or "Uploaded document"
     else:
+        source_body, content_type = await _read_url_body(url_clean or "")
+        source_label = url_clean or "url"
         parsed = urlparse(url_clean or "")
         host = parsed.netloc or "SOURCE"
-        context_label = url_clean or ""
         default_ref = f"{slug_document_ref_prefix(host)}-URL-{uuid4().hex[:6].upper()}"
         default_title = f"Imported — {host}"
 
@@ -109,17 +426,51 @@ async def ingest_document(
         ingested_by=_normalise_whitespace(ingested_by),
     )
 
+    logger.info(
+        "ingest: start has_file=%s has_url=%s ref=%s regulator=%s",
+        file is not None,
+        bool(url_clean),
+        doc_ref,
+        reg,
+    )
+
     try:
+        structured_pairs = await collect_structured_obligations_from_source(
+            regulator=reg,
+            document_title=doc_title,
+            source_body=source_body,
+            source_label=source_label,
+            content_type=content_type,
+            anthropic_client=anthropic_client,
+        )
         created_doc = await client.create_document(document_payload)
-        stub_rows = build_stub_obligations(
+        logger.info(
+            "ingest: document registered id=%s ref=%s (obligation rows to persist=%s)",
+            created_doc.id,
+            created_doc.ref,
+            len(structured_pairs),
+        )
+        obligation_rows = map_collected_items_to_creates(
             document_id=created_doc.id,
             document_ref=created_doc.ref,
-            context_label=context_label,
+            pairs=structured_pairs,
         )
-        created_obligations = await client.create_obligations_batch(stub_rows)
+        created_obligations = await client.create_obligations_batch(obligation_rows)
     except httpx.HTTPStatusError as exc:
+        logger.error(
+            "ingest: obligation-service HTTP %s for %s",
+            exc.response.status_code,
+            exc.request.url,
+        )
         detail = exc.response.text[:2000] if exc.response.text else exc.response.reason_phrase
         raise HTTPException(status_code=exc.response.status_code, detail=detail) from exc
+
+    logger.info(
+        "ingest: complete document_id=%s ref=%s obligations=%s",
+        created_doc.id,
+        created_doc.ref,
+        len(created_obligations),
+    )
 
     return IngestResponse(
         document=created_doc,
@@ -142,8 +493,16 @@ async def list_obligations_for_document(
 
     Pagination is handled inside ObligationClient so this route always returns a flat list.
     """
+    logger.info("preview: list obligations for document_id=%s", document_id)
     try:
-        return await client.list_obligations_for_document(document_id)
+        rows = await client.list_obligations_for_document(document_id)
+        logger.info("preview: returning %s obligations for document_id=%s", len(rows), document_id)
+        return rows
     except httpx.HTTPStatusError as exc:
+        logger.error(
+            "preview: obligation-service HTTP %s for document_id=%s",
+            exc.response.status_code,
+            document_id,
+        )
         detail = exc.response.text[:2000] if exc.response.text else exc.response.reason_phrase
         raise HTTPException(status_code=exc.response.status_code, detail=detail) from exc

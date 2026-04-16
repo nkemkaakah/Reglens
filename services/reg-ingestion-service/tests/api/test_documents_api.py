@@ -7,10 +7,60 @@ from uuid import UUID, uuid4
 
 import httpx
 import pytest
+import respx
 from httpx import AsyncClient
 
+from app.api.routers import documents as documents_router
 from app.schemas.documents import ObligationResponse
 from tests.conftest import FakeObligationClient
+
+
+@pytest.fixture
+def patch_extraction_two_rows(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Avoid real model calls in HTTP tests — returns two structured rows before document persist."""
+
+    async def _fake_collect_structured_obligations_from_source(
+        **kwargs: object,
+    ) -> list[tuple[int, documents_router._LlmObligationItem]]:
+        _ = kwargs
+        return [
+            (
+                0,
+                documents_router._LlmObligationItem(
+                    ref="ignored",
+                    title="Test obligation one",
+                    summary="Summary one.",
+                    full_text="Full text one.",
+                    section_ref="§1",
+                    topics=["AI Governance"],
+                    ai_principles=["Accountability"],
+                    risk_rating="HIGH",
+                    effective_date=None,
+                    status="UNMAPPED",
+                ),
+            ),
+            (
+                0,
+                documents_router._LlmObligationItem(
+                    ref="ignored",
+                    title="Test obligation two",
+                    summary="Summary two.",
+                    full_text="Full text two.",
+                    section_ref="§2",
+                    topics=["Transparency"],
+                    ai_principles=["Transparency"],
+                    risk_rating="MEDIUM",
+                    effective_date=None,
+                    status="UNMAPPED",
+                ),
+            ),
+        ]
+
+    monkeypatch.setattr(
+        documents_router,
+        "collect_structured_obligations_from_source",
+        _fake_collect_structured_obligations_from_source,
+    )
 
 
 async def test_ingest_requires_file_or_url(
@@ -27,9 +77,10 @@ async def test_ingest_rejects_whitespace_only_url(async_client: AsyncClient) -> 
     assert response.status_code == 400
 
 
-async def test_ingest_with_file_returns_stub_batch(
+async def test_ingest_with_file_returns_two_obligations(
     async_client: AsyncClient,
     fake_obligation_client: FakeObligationClient,
+    patch_extraction_two_rows: None,
 ) -> None:
     files = {"file": ("FCA_Notice.pdf", b"%PDF-1.4 test-bytes", "application/pdf")}
     response = await async_client.post("/api/documents", files=files)
@@ -43,10 +94,19 @@ async def test_ingest_with_file_returns_stub_batch(
     assert len(fake_obligation_client.create_batch_calls[0]) == 2
 
 
+@respx.mock
 async def test_ingest_with_source_url_only(
     async_client: AsyncClient,
     fake_obligation_client: FakeObligationClient,
+    patch_extraction_two_rows: None,
 ) -> None:
+    respx.get("https://www.fca.org.uk/publication/example").mock(
+        return_value=httpx.Response(
+            200,
+            text="<html><body>Firms must document AI governance.</body></html>",
+            headers={"content-type": "text/html; charset=utf-8"},
+        )
+    )
     data = {"source_url": "https://www.fca.org.uk/publication/example"}
     response = await async_client.post("/api/documents", data=data)
 
@@ -60,6 +120,7 @@ async def test_ingest_with_source_url_only(
 async def test_ingest_file_plus_url_sets_document_url(
     async_client: AsyncClient,
     fake_obligation_client: FakeObligationClient,
+    patch_extraction_two_rows: None,
 ) -> None:
     files = {"file": ("doc.pdf", b"%PDF", "application/pdf")}
     data = {"source_url": "https://reg.example/rule.pdf"}
@@ -72,6 +133,7 @@ async def test_ingest_file_plus_url_sets_document_url(
 async def test_ingest_form_overrides_metadata(
     async_client: AsyncClient,
     fake_obligation_client: FakeObligationClient,
+    patch_extraction_two_rows: None,
 ) -> None:
     files = {"file": ("x.pdf", b"%PDF", "application/pdf")}
     data = {
@@ -95,6 +157,7 @@ async def test_ingest_form_overrides_metadata(
 async def test_ingest_propagates_upstream_status(
     async_client: AsyncClient,
     fake_obligation_client: FakeObligationClient,
+    patch_extraction_two_rows: None,
 ) -> None:
     req = httpx.Request("POST", "http://obligation/documents")
     resp = httpx.Response(409, request=req, text="duplicate document ref")

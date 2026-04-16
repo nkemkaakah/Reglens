@@ -21,6 +21,13 @@ from app.main import create_app
 from app.schemas.documents import DocumentCreate, DocumentResponse, ObligationCreate, ObligationResponse
 
 
+class _DummyAnthropicClient:
+    """Resolved by dependency override so HTTP tests never need app lifespan or a real API key."""
+
+    async def close(self) -> None:
+        pass
+
+
 class FakeObligationClient:
     """
     In-memory stand-in for ObligationClient — records inputs and returns plausible responses.
@@ -112,6 +119,7 @@ def fake_obligation_client() -> FakeObligationClient:
 async def async_client(fake_obligation_client: FakeObligationClient) -> AsyncIterator[AsyncClient]:
     app = create_app()
     app.dependency_overrides[deps.get_obligation_client] = lambda: fake_obligation_client
+    app.dependency_overrides[deps.get_anthropic_client] = lambda: _DummyAnthropicClient()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         yield client

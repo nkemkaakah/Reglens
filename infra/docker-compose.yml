@@ -28,6 +28,7 @@ services:
     environment:
       OBLIGATION_SERVICE_BASE_URL: http://obligation-service:8080
       OBLIGATION_SERVICE_TOKEN: dev-service-token-change-me
+      LLM_API_KEY: ${LLM_API_KEY:-}
     ports:
       - "8000:8000"
     depends_on:

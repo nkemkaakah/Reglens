@@ -1,6 +1,8 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from './components/AppShell'
 import { PlaceholderPage } from './components/PlaceholderPage'
+import { IngestionPage } from './pages/IngestionPage'
+import { ObligationExplorerPage } from './pages/ObligationExplorerPage'
 
 function App() {
   return (
@@ -10,19 +12,13 @@ function App() {
         <Route
           path="/ingestion"
           element={
-            <PlaceholderPage
-              title="Regulatory Ingestion"
-              description="Upload regulations and extract obligations. The ingestion workflow will be implemented in Phase 1."
-            />
+            <IngestionPage />
           }
         />
         <Route
           path="/obligations"
           element={
-            <PlaceholderPage
-              title="Obligation Explorer"
-              description="Search and triage obligations with status and risk context."
-            />
+            <ObligationExplorerPage />
           }
         />
         <Route

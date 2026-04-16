@@ -18,6 +18,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.List;
 import java.util.UUID;
 
@@ -27,6 +30,8 @@ import java.util.UUID;
 @RestController
 @Tag(name = "Obligations")
 public class ObligationController {
+
+	private static final Logger log = LoggerFactory.getLogger(ObligationController.class);
 
 	private final ObligationService obligationService;
 
@@ -48,6 +53,17 @@ public class ObligationController {
 			@RequestParam(required = false) String q,
 			@PageableDefault(size = 20, sort = "createdAt") Pageable pageable
 	) {
+		log.debug(
+				"GET /obligations page={} size={} status={} regulator={} risk={} topic={} aiPrinciple={} q={}",
+				pageable.getPageNumber(),
+				pageable.getPageSize(),
+				status,
+				regulator,
+				riskRating,
+				topic,
+				aiPrinciple,
+				q
+		);
 		return obligationService.list(status, regulator, riskRating, topic, aiPrinciple, q, pageable);
 	}
 
@@ -57,7 +73,9 @@ public class ObligationController {
 	@GetMapping("/obligations/{id}")
 	@Operation(summary = "Get obligation by id")
 	public ObligationResponse getById(@PathVariable UUID id) {
-		return obligationService.getById(id);
+		ObligationResponse response = obligationService.getById(id);
+		log.info("GET /obligations/{} ref={}", id, response.ref());
+		return response;
 	}
 
 	/**
@@ -69,6 +87,12 @@ public class ObligationController {
 			@PathVariable("id") UUID documentId,
 			@PageableDefault(size = 50, sort = "createdAt") Pageable pageable
 	) {
+		log.debug(
+				"GET /documents/{}/obligations page={} size={}",
+				documentId,
+				pageable.getPageNumber(),
+				pageable.getPageSize()
+		);
 		return obligationService.listByDocument(documentId, pageable);
 	}
 
@@ -79,7 +103,14 @@ public class ObligationController {
 	@ResponseStatus(HttpStatus.CREATED)
 	@Operation(summary = "Create one obligation")
 	public ObligationResponse create(@Valid @RequestBody ObligationRequest request) {
-		return obligationService.create(request);
+		ObligationResponse created = obligationService.create(request);
+		log.info(
+				"POST /obligations created id={} ref={} documentId={}",
+				created.id(),
+				created.ref(),
+				created.documentId()
+		);
+		return created;
 	}
 
 	/**
@@ -89,6 +120,13 @@ public class ObligationController {
 	@ResponseStatus(HttpStatus.CREATED)
 	@Operation(summary = "Bulk create obligations")
 	public List<ObligationResponse> createBatch(@Valid @RequestBody List<ObligationRequest> requests) {
-		return obligationService.createAll(requests);
+		List<ObligationResponse> created = obligationService.createAll(requests);
+		UUID documentId = requests.isEmpty() ? null : requests.getFirst().documentId();
+		log.info(
+				"POST /obligations/batch created count={} documentId={}",
+				created.size(),
+				documentId
+		);
+		return created;
 	}
 }

@@ -14,6 +14,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.reglens.obligation_service.dto.DocumentRequest;
 import com.reglens.obligation_service.dto.DocumentResponse;
 import com.reglens.obligation_service.service.DocumentService;
@@ -30,6 +33,8 @@ import jakarta.validation.Valid;
 @Tag(name = "Documents")
 public class DocumentController {
 
+	private static final Logger log = LoggerFactory.getLogger(DocumentController.class);
+
 	private final DocumentService documentService;
 
 	public DocumentController(DocumentService documentService) {
@@ -44,6 +49,7 @@ public class DocumentController {
 	public Page<DocumentResponse> list(
 			@PageableDefault(size = 20, sort = "ingestedAt") Pageable pageable
 	) {
+		log.debug("GET /documents page={} size={}", pageable.getPageNumber(), pageable.getPageSize());
 		return documentService.list(pageable);
 	}
 
@@ -53,7 +59,9 @@ public class DocumentController {
 	@GetMapping("/{id}")
 	@Operation(summary = "Get document by id")
 	public DocumentResponse getById(@PathVariable UUID id) {
-		return documentService.getById(id);
+		DocumentResponse doc = documentService.getById(id);
+		log.info("GET /documents/{} ref={}", id, doc.ref());
+		return doc;
 	}
 
 	/**
@@ -64,6 +72,8 @@ public class DocumentController {
 	@ResponseStatus(HttpStatus.CREATED)
 	@Operation(summary = "Register an ingested document")
 	public DocumentResponse create(@Valid @RequestBody DocumentRequest request) {
-		return documentService.create(request);
+		DocumentResponse created = documentService.create(request);
+		log.info("POST /documents created id={} ref={} regulator={}", created.id(), created.ref(), created.regulator());
+		return created;
 	}
 }

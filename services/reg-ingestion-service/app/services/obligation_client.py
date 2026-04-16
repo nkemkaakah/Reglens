@@ -7,11 +7,15 @@ runs the extraction pipeline, then persists through this client (service token o
 
 from __future__ import annotations
 
+import logging
+import time
 from uuid import UUID
 
 import httpx
 
 from app.schemas.documents import DocumentCreate, DocumentResponse, ObligationCreate, ObligationResponse
+
+logger = logging.getLogger(__name__)
 
 
 class ObligationClient:
@@ -37,22 +41,54 @@ class ObligationClient:
 
     async def create_document(self, payload: DocumentCreate) -> DocumentResponse:
         """POST /documents — first step of ingest; returns assigned UUID."""
+        t0 = time.perf_counter()
         response = await self._http.post(
             "/documents",
             json=payload.model_dump(mode="json", by_alias=True, exclude_none=True),
             headers=self._write_headers(),
         )
+        elapsed_ms = (time.perf_counter() - t0) * 1000
+        if response.is_success:
+            logger.info(
+                "obligation-service POST /documents -> %s in %.0fms (ref=%s)",
+                response.status_code,
+                elapsed_ms,
+                payload.ref,
+            )
+        else:
+            logger.warning(
+                "obligation-service POST /documents -> %s in %.0fms (ref=%s)",
+                response.status_code,
+                elapsed_ms,
+                payload.ref,
+            )
         response.raise_for_status()
         return DocumentResponse.model_validate(response.json())
 
     async def create_obligations_batch(self, items: list[ObligationCreate]) -> list[ObligationResponse]:
         """POST /obligations/batch — one round-trip for the whole stub or LLM extraction output."""
         body = [item.model_dump(mode="json", by_alias=True, exclude_none=True) for item in items]
+        t0 = time.perf_counter()
         response = await self._http.post(
             "/obligations/batch",
             json=body,
             headers=self._write_headers(),
         )
+        elapsed_ms = (time.perf_counter() - t0) * 1000
+        if response.is_success:
+            logger.info(
+                "obligation-service POST /obligations/batch -> %s in %.0fms (count=%s)",
+                response.status_code,
+                elapsed_ms,
+                len(items),
+            )
+        else:
+            logger.warning(
+                "obligation-service POST /obligations/batch -> %s in %.0fms (count=%s)",
+                response.status_code,
+                elapsed_ms,
+                len(items),
+            )
         response.raise_for_status()
         return [ObligationResponse.model_validate(row) for row in response.json()]
 
@@ -64,11 +100,26 @@ class ObligationClient:
         """
         collected: list[ObligationResponse] = []
         page = 0
+        t0 = time.perf_counter()
         while True:
             response = await self._http.get(
                 f"/documents/{document_id}/obligations",
                 params={"page": page, "size": page_size, "sort": "createdAt"},
             )
+            if response.is_success:
+                logger.info(
+                    "obligation-service GET /documents/%s/obligations page=%s -> %s",
+                    document_id,
+                    page,
+                    response.status_code,
+                )
+            else:
+                logger.warning(
+                    "obligation-service GET /documents/%s/obligations page=%s -> %s",
+                    document_id,
+                    page,
+                    response.status_code,
+                )
             response.raise_for_status()
             payload = response.json()
             for row in payload.get("content", []):
@@ -77,4 +128,11 @@ class ObligationClient:
             if last or not payload.get("content"):
                 break
             page += 1
+        elapsed_ms = (time.perf_counter() - t0) * 1000
+        logger.info(
+            "obligation-service listed obligations for document %s: %s rows in %.0fms",
+            document_id,
+            len(collected),
+            elapsed_ms,
+        )
         return collected
