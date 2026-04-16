@@ -1,5 +1,8 @@
 # RegLens local stack — extend as services are added.
 # From repo root: docker compose -f infra/docker-compose.yml up -d
+#
+# Postgres: single database `reglens`; each Java service uses its own schema (Pattern 2).
+# If you change schema/Flyway layout, reset the volume once: docker compose -f infra/docker-compose.yml down -v
 
 services:
 
@@ -9,7 +12,7 @@ services:
       dockerfile: Dockerfile
     container_name: reglens-obligation-service
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/reglens
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/reglens?currentSchema=obligation
       SPRING_DATASOURCE_USERNAME: reglens
       SPRING_DATASOURCE_PASSWORD: reglens_dev
       APP_SECURITY_SERVICE_TOKEN: dev-service-token-change-me
