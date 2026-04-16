@@ -1,4 +1,6 @@
-"""FastAPI dependencies — shared request-scoped or app-scoped collaborators."""
+"""FastAPI dependencies (e.g. obligation-service HTTP client)."""
+
+from __future__ import annotations
 
 from typing import Annotated
 
@@ -8,13 +10,8 @@ from app.services.obligation_client import ObligationClient
 
 
 def get_obligation_client(request: Request) -> ObligationClient:
-    """
-    Return the singleton ObligationClient attached during app lifespan.
-
-    Keeping one AsyncClient avoids TCP/TLS handshake overhead on every obligation batch.
-    """
+    """Returns the shared async client created in ``app.main`` lifespan."""
     return request.app.state.obligation_client
 
 
-# Shorthand for routers: `async def route(client: ObligationClientDep): ...`
 ObligationClientDep = Annotated[ObligationClient, Depends(get_obligation_client)]
