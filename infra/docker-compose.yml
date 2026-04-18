@@ -1,8 +1,5 @@
 # RegLens local stack — extend as services are added.
-# From repo root: docker compose -f infra/docker-compose.yml up -d
-#
-# Postgres: single database `reglens`; each Java service uses its own schema (Pattern 2).
-# If you change schema/Flyway layout, reset the volume once: docker compose -f infra/docker-compose.yml down -v
+
 
 services:
 
@@ -22,6 +19,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      catalog-service:
+        condition: service_started
 
   reg-ingestion-service:
     build:
