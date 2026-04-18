@@ -153,7 +153,7 @@ export function ControlDrawer({ controlId, onClose }: ControlDrawerProps) {
 
               <div className="rounded-xl border border-app-border bg-app-surface p-6 shadow-sm">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-app-muted">
-                  Linked systems
+                  Linked systems ({control.linkedSystems.length})
                 </p>
                 {control.linkedSystems.length ? (
                   <ul className="mt-4 space-y-3 text-sm">

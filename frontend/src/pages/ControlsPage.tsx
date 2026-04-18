@@ -87,11 +87,15 @@ export function ControlsPage() {
       </div>
 
       <div className="rounded-lg border border-app-border bg-app-surface p-6">
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-4">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-app-text">Filters</p>
+        <p className="mt-1 text-xs text-app-muted">
+          Narrow the control library - combine search with category or lifecycle status.
+        </p>
+        <div className="mt-4 grid grid-cols-1 gap-4 rounded-md border border-app-border/80 bg-app-subtle/50 p-4 lg:grid-cols-4">
           <label className="block lg:col-span-2">
-            <span className="text-xs font-medium text-app-muted">Search</span>
+            <span className="text-xs font-semibold uppercase tracking-wide text-app-text">Search</span>
             <input
-              className="mt-1 block w-full rounded-md border border-app-border bg-app-subtle px-3 py-2 text-sm text-app-text"
+              className="mt-1.5 block w-full rounded-md border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text shadow-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/25"
               placeholder="Ref, title, or description"
               value={filters.q}
               onChange={(e) => {
@@ -101,9 +105,9 @@ export function ControlsPage() {
             />
           </label>
           <label className="block">
-            <span className="text-xs font-medium text-app-muted">Category</span>
+            <span className="text-xs font-semibold uppercase tracking-wide text-app-text">Category</span>
             <input
-              className="mt-1 block w-full rounded-md border border-app-border bg-app-subtle px-3 py-2 text-sm text-app-text"
+              className="mt-1.5 block w-full rounded-md border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text shadow-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/25"
               placeholder="e.g. Model Risk"
               value={filters.category}
               onChange={(e) => {
@@ -113,9 +117,9 @@ export function ControlsPage() {
             />
           </label>
           <label className="block">
-            <span className="text-xs font-medium text-app-muted">Status</span>
+            <span className="text-xs font-semibold uppercase tracking-wide text-app-text">Status</span>
             <select
-              className="mt-1 block w-full rounded-md border border-app-border bg-app-subtle px-3 py-2 text-sm text-app-text"
+              className="mt-1.5 block w-full rounded-md border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text shadow-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/25"
               value={filters.status}
               onChange={(e) => {
                 setPage(0)
@@ -174,7 +178,7 @@ export function ControlsPage() {
                       </p>
                     </td>
                     <td className="px-4 py-3 align-top">
-                      <p className="text-sm">{row.category}</p>
+                      <StatusBadge label={row.category} tone="ai" />
                     </td>
                     <td className="px-4 py-3 align-top">
                       <StatusBadge

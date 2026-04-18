@@ -175,7 +175,7 @@ export function CatalogSystemDrawer({ systemId, onClose }: CatalogSystemDrawerPr
 
               <div className="rounded-xl border border-app-border bg-app-surface p-6 shadow-sm">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-app-muted">
-                  Linked controls
+                  Linked controls ({system.linkedControls.length})
                 </p>
                 {system.linkedControls.length ? (
                   <ul className="mt-4 space-y-3 text-sm">
