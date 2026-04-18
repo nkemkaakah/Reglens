@@ -52,3 +52,58 @@ export interface IngestResponse {
   obligationCount: number
 }
 
+/** Feature 3 — catalogue owner team (matches catalog-service JSON). */
+export interface TeamSummary {
+  id: string
+  name: string
+  domain: string
+}
+
+export type ControlLifecycleStatus = 'ACTIVE' | 'UNDER_REVIEW' | 'DEPRECATED'
+export type Criticality = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
+
+export interface ControlLinkedSystemRow {
+  systemId: string
+  ref: string
+  displayName: string
+  notes: string | null
+}
+
+export interface SystemLinkedControlRow {
+  controlId: string
+  ref: string
+  title: string
+  category: string
+  notes: string | null
+}
+
+/** Control library row (list or detail — list has empty linkedSystems). */
+export interface ControlCatalogRow {
+  id: string
+  ref: string
+  category: string
+  title: string
+  description: string
+  evidenceType: string | null
+  reviewFrequency: string | null
+  status: ControlLifecycleStatus
+  ownerTeam: TeamSummary | null
+  createdAt: string
+  linkedSystems: ControlLinkedSystemRow[]
+}
+
+/** Internal system catalogue row (list or detail). */
+export interface CatalogSystemRow {
+  id: string
+  ref: string
+  displayName: string
+  description: string | null
+  domain: string | null
+  techStack: string[]
+  repoUrl: string | null
+  criticality: Criticality
+  ownerTeam: TeamSummary | null
+  createdAt: string
+  linkedControls: SystemLinkedControlRow[]
+}
+

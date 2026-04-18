@@ -1,8 +1,10 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from './components/AppShell'
 import { PlaceholderPage } from './components/PlaceholderPage'
+import { ControlsPage } from './pages/ControlsPage'
 import { IngestionPage } from './pages/IngestionPage'
 import { ObligationExplorerPage } from './pages/ObligationExplorerPage'
+import { SystemsPage } from './pages/SystemsPage'
 
 function App() {
   return (
@@ -21,24 +23,8 @@ function App() {
             <ObligationExplorerPage />
           }
         />
-        <Route
-          path="/controls"
-          element={
-            <PlaceholderPage
-              title="Controls Catalogue"
-              description="Manage control records and map them to systems and obligations."
-            />
-          }
-        />
-        <Route
-          path="/systems"
-          element={
-            <PlaceholderPage
-              title="Systems Catalogue"
-              description="Track service metadata, ownership and API dependencies."
-            />
-          }
-        />
+        <Route path="/controls" element={<ControlsPage />} />
+        <Route path="/systems" element={<SystemsPage />} />
         <Route
           path="/mappings"
           element={
