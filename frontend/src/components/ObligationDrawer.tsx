@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { ObligationMappingsSection } from './ObligationMappingsSection'
 import { StatusBadge } from './StatusBadge'
 import { apiFetchJson, OBLIGATION_API_BASE_URL } from '../lib/apiClient'
 import type { ObligationSummary } from '../types/api'
@@ -211,14 +212,15 @@ export function ObligationDrawer({ obligationId, onClose }: ObligationDrawerProp
                 </div>
               </div>
 
+              <ObligationMappingsSection obligationId={obligationId} />
+
               <div className="rounded-xl border border-app-border bg-app-surface p-6 shadow-sm">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-app-muted">
                   Next (later phases)
                 </p>
-                <ul className="mt-4 list-disc space-y-2 pl-5 text-sm leading-relaxed text-app-muted">
-                  <li>Mappings panel (Feature 4)</li>
-                  <li>Workflow timeline (Feature 7)</li>
-                </ul>
+                <p className="mt-3 text-sm leading-relaxed text-app-muted">
+                  Workflow timeline (Feature 7) will appear here.
+                </p>
               </div>
             </div>
           ) : null}

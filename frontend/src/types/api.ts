@@ -107,3 +107,47 @@ export interface CatalogSystemRow {
   linkedControls: SystemLinkedControlRow[]
 }
 
+/** Persisted obligation→control mapping (obligation-service GET /obligations/{id}/mappings). */
+export interface ControlMappingRow {
+  id: string
+  controlId: string
+  confidence: number | null
+  source: string
+  explanation: string | null
+  approvedBy: string | null
+  approvedAt: string | null
+}
+
+/** Persisted obligation→system mapping. */
+export interface SystemMappingRow {
+  id: string
+  systemId: string
+  confidence: number | null
+  source: string
+  explanation: string | null
+  approvedBy: string | null
+  approvedAt: string | null
+}
+
+export interface ObligationMappingsResponse {
+  controls: ControlMappingRow[]
+  systems: SystemMappingRow[]
+}
+
+export type MappingSuggestionKind = 'control' | 'system'
+
+/** One LLM suggestion from mapping-service POST …/suggest-mappings. */
+export interface MappingSuggestion {
+  kind: MappingSuggestionKind
+  id: string
+  ref: string
+  title: string
+  confidence: number
+  explanation: string
+}
+
+export interface MappingSuggestResponse {
+  obligationId: string
+  suggestions: MappingSuggestion[]
+}
+
