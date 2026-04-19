@@ -65,3 +65,28 @@ export async function postSystemMappings(
   log.info('POST obligation mappings/systems', { obligationId, count: rows.length })
   return fetchJson(path, { method: 'POST', body: JSON.stringify(rows) })
 }
+
+export type MappingRejectionPayload = {
+  catalogueKind: 'control' | 'system'
+  catalogueId: string
+  rejectedBy: string
+  reason?: string | null
+}
+
+export type MappingRejectionRow = {
+  id: string
+  catalogueKind: string
+  catalogueId: string
+  rejectedBy: string
+  reason: string | null
+  rejectedAt: string
+}
+
+export async function postMappingRejection(
+  obligationId: string,
+  body: MappingRejectionPayload,
+): Promise<MappingRejectionRow> {
+  const path = `/obligations/${obligationId}/mapping-rejections`
+  log.info('POST obligation mapping-rejection', { obligationId, catalogueKind: body.catalogueKind })
+  return fetchJson<MappingRejectionRow>(path, { method: 'POST', body: JSON.stringify(body) })
+}

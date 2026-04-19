@@ -143,6 +143,7 @@ export interface MappingSuggestion {
   ref: string
   title: string
   confidence: number
+  confidenceRationale: string
   explanation: string
 }
 

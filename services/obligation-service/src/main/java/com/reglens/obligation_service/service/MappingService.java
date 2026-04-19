@@ -2,13 +2,17 @@ package com.reglens.obligation_service.service;
 
 import com.reglens.obligation_service.domain.Obligation;
 import com.reglens.obligation_service.domain.ObligationControlMapping;
+import com.reglens.obligation_service.domain.ObligationMappingRejection;
 import com.reglens.obligation_service.domain.ObligationSystemMapping;
 import com.reglens.obligation_service.dto.ControlMappingRequest;
 import com.reglens.obligation_service.dto.ControlMappingRow;
+import com.reglens.obligation_service.dto.MappingRejectionRequest;
+import com.reglens.obligation_service.dto.MappingRejectionRow;
 import com.reglens.obligation_service.dto.MappingsResponse;
 import com.reglens.obligation_service.dto.SystemMappingRequest;
 import com.reglens.obligation_service.dto.SystemMappingRow;
 import com.reglens.obligation_service.repository.ObligationControlMappingRepository;
+import com.reglens.obligation_service.repository.ObligationMappingRejectionRepository;
 import com.reglens.obligation_service.repository.ObligationRepository;
 import com.reglens.obligation_service.repository.ObligationSystemMappingRepository;
 import org.springframework.http.HttpStatus;
@@ -31,19 +35,23 @@ import java.util.UUID;
 public class MappingService {
 
 	private static final Set<String> ALLOWED_SOURCES = Set.of("AI_SUGGESTED", "MANUAL");
+	private static final Set<String> ALLOWED_CATALOGUE_KINDS = Set.of("control", "system");
 
 	private final ObligationRepository obligationRepository;
 	private final ObligationControlMappingRepository controlMappingRepository;
 	private final ObligationSystemMappingRepository systemMappingRepository;
+	private final ObligationMappingRejectionRepository mappingRejectionRepository;
 
 	public MappingService(
 			ObligationRepository obligationRepository,
 			ObligationControlMappingRepository controlMappingRepository,
-			ObligationSystemMappingRepository systemMappingRepository
+			ObligationSystemMappingRepository systemMappingRepository,
+			ObligationMappingRejectionRepository mappingRejectionRepository
 	) {
 		this.obligationRepository = obligationRepository;
 		this.controlMappingRepository = controlMappingRepository;
 		this.systemMappingRepository = systemMappingRepository;
+		this.mappingRejectionRepository = mappingRejectionRepository;
 	}
 
 	@Transactional(readOnly = true)
@@ -56,6 +64,31 @@ public class MappingService {
 				.map(this::toSystemRow)
 				.toList();
 		return new MappingsResponse(controls, systems);
+	}
+
+	@Transactional
+	public MappingRejectionRow recordMappingRejection(UUID obligationId, MappingRejectionRequest request) {
+		Obligation obligation = requireObligation(obligationId);
+		String kind = request.catalogueKind().trim().toLowerCase();
+		if (!ALLOWED_CATALOGUE_KINDS.contains(kind)) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "catalogueKind must be control or system");
+		}
+		ObligationMappingRejection row = new ObligationMappingRejection();
+		row.setObligation(obligation);
+		row.setCatalogueKind(kind);
+		row.setCatalogueId(request.catalogueId());
+		row.setRejectedBy(request.rejectedBy().trim());
+		row.setReason(trimToNull(request.reason()));
+		row.setRejectedAt(OffsetDateTime.now());
+		mappingRejectionRepository.save(row);
+		return new MappingRejectionRow(
+				row.getId(),
+				row.getCatalogueKind(),
+				row.getCatalogueId(),
+				row.getRejectedBy(),
+				row.getReason(),
+				row.getRejectedAt()
+		);
 	}
 
 	@Transactional

@@ -2,6 +2,8 @@ package com.reglens.obligation_service.controller;
 
 import com.reglens.obligation_service.dto.ControlMappingRequest;
 import com.reglens.obligation_service.dto.ControlMappingRow;
+import com.reglens.obligation_service.dto.MappingRejectionRequest;
+import com.reglens.obligation_service.dto.MappingRejectionRow;
 import com.reglens.obligation_service.dto.MappingsResponse;
 import com.reglens.obligation_service.dto.SystemMappingRequest;
 import com.reglens.obligation_service.dto.SystemMappingRow;
@@ -54,5 +56,14 @@ public class ObligationMappingController {
 			@Valid @RequestBody List<SystemMappingRequest> body
 	) {
 		return mappingService.upsertSystemMappings(obligationId, body);
+	}
+
+	@PostMapping("/obligations/{id}/mapping-rejections")
+	@Operation(summary = "Record rejection of a suggested mapping candidate (requires service bearer token)")
+	public MappingRejectionRow recordMappingRejection(
+			@PathVariable("id") UUID obligationId,
+			@Valid @RequestBody MappingRejectionRequest body
+	) {
+		return mappingService.recordMappingRejection(obligationId, body);
 	}
 }

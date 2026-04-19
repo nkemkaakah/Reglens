@@ -8,6 +8,13 @@ import { log } from '../log.js'
 
 const router = Router()
 
+const MappingRejectionBodySchema = z.object({
+  catalogueKind: z.enum(['control', 'system']),
+  catalogueId: z.string().uuid(),
+  rejectedBy: z.string().min(1, 'rejectedBy is required'),
+  reason: z.string().optional().nullable(),
+})
+
 const ApproveMappingsBodySchema = z.object({
   approvedBy: z.string().min(1, 'approvedBy is required'),
   controls: z
@@ -53,6 +60,27 @@ router.post('/:obligationId/suggest-mappings', async (req, res, next) => {
     const suggestions = await runSuggestMappings(obligation, controls, systems)
     res.json({ obligationId, suggestions })
   } catch (e) {
+    next(e)
+  }
+})
+
+/** Records a human rejection of a suggested candidate (obligation-service is source of truth). */
+router.post('/:obligationId/mapping-rejections', async (req, res, next) => {
+  const obligationId = req.params.obligationId
+  try {
+    const body = MappingRejectionBodySchema.parse(req.body)
+    const row = await obligationClient.postMappingRejection(obligationId, {
+      catalogueKind: body.catalogueKind,
+      catalogueId: body.catalogueId,
+      rejectedBy: body.rejectedBy,
+      reason: body.reason ?? undefined,
+    })
+    res.status(201).json(row)
+  } catch (e) {
+    if (e instanceof ZodError) {
+      res.status(400).json({ error: 'Validation failed', details: e.flatten() })
+      return
+    }
     next(e)
   }
 })

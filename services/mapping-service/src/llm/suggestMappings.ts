@@ -12,6 +12,7 @@ const SuggestionSchema = z.object({
   ref: z.string(),
   title: z.string(),
   confidence: z.number().min(0).max(1),
+  confidenceRationale: z.string(),
   explanation: z.string(),
 })
 
@@ -36,9 +37,10 @@ const SUGGEST_MAPPINGS_JSON_SCHEMA = {
           ref: { type: 'string' },
           title: { type: 'string' },
           confidence: { type: 'number', minimum: 0, maximum: 1 },
+          confidenceRationale: { type: 'string' },
           explanation: { type: 'string' },
         },
-        required: ['kind', 'id', 'ref', 'title', 'confidence', 'explanation'],
+        required: ['kind', 'id', 'ref', 'title', 'confidence', 'confidenceRationale', 'explanation'],
         additionalProperties: false,
       },
     },
@@ -105,7 +107,9 @@ Rules:
 - For kind "system", "title" is the system's displayName from the input.
 - "id" MUST be copied exactly from the input arrays — never invent UUIDs.
 - Prefer precision over volume: at most 12 suggestions total, ranked most relevant first.
-- confidence is your estimated strength of fit (0 to 1).`
+- "confidence" (0 to 1): how well the semantic and conceptual content of that control or system description addresses the obligation text (title, summary, fullText). 1.0 = direct, precise alignment; 0.0 = no meaningful overlap. Base this on comparing obligation wording to the catalogue description fields you were given — not on external data.
+- "confidenceRationale": exactly one sentence naming which phrases or themes in the obligation vs the control/system description drove the score.
+- "explanation": a fuller rationale for the reviewer (how the mapping would work in practice).`
 
 /**
  * Calls Anthropic Messages API with JSON-schema structured output, then validates and filters
