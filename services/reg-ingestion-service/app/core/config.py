@@ -3,7 +3,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 LLM_MODEL = "claude-haiku-4-5"
-LLM_MAX_OUTPUT_TOKENS = 8192
+LLM_MAX_OUTPUT_TOKENS = 4096
 
 
 class Settings(BaseSettings):
@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     debug: bool = False
     obligation_service_base_url: str = "http://localhost:8080"
     obligation_service_token: str = "dev-service-token-change-me"
-    llm_api_key: str = Field(
+    ANTHROPIC_API_KEY: str = Field(
         default="",
     )
 

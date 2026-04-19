@@ -9,6 +9,9 @@ export const INGESTION_API_BASE_URL =
 export const CATALOG_API_BASE_URL =
   import.meta.env.VITE_CATALOG_API_URL ?? 'http://localhost:8081'
 
+export const MAPPING_API_BASE_URL =
+  import.meta.env.VITE_MAPPING_API_URL ?? 'http://localhost:3000'
+
 type ApiError = Error & { status?: number; body?: string }
 
 async function parseError(response: Response): Promise<ApiError> {

@@ -30,7 +30,7 @@ services:
     environment:
       OBLIGATION_SERVICE_BASE_URL: http://obligation-service:8080
       OBLIGATION_SERVICE_TOKEN: dev-service-token-change-me
-      LLM_API_KEY: ${LLM_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     ports:
       - "8000:8000"
     depends_on:
@@ -38,6 +38,29 @@ services:
         condition: service_started
       postgres:
         condition: service_healthy
+
+  mapping-service:
+    build:
+      context: ../services/mapping-service
+      dockerfile: Dockerfile
+    container_name: reglens-mapping-service
+    environment:
+      PORT: "3000"
+      OBLIGATION_SERVICE_BASE_URL: http://obligation-service:8080
+      CATALOG_SERVICE_BASE_URL: http://catalog-service:8081
+      OBLIGATION_SERVICE_TOKEN: dev-service-token-change-me
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_TOPIC_MAPPED: obligation.mapped
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    ports:
+      - "3000:3000"
+    depends_on:
+      kafka:
+        condition: service_healthy
+      obligation-service:
+        condition: service_started
+      catalog-service:
+        condition: service_started
 
   catalog-service:
     build:

@@ -24,7 +24,7 @@ async def lifespan(app: FastAPI):
     )
     app.state.obligation_client = obligation_client
     app.state.anthropic_client = anthropic.AsyncAnthropic(
-        api_key=settings.llm_api_key.strip() or "anthropic-api-key-not-configured",
+        api_key=settings.ANTHROPIC_API_KEY.strip() or "anthropic-api-key-not-configured",
     )
     try:
         yield

@@ -270,10 +270,10 @@ async def _complete_chat_for_structured_obligations(
     anthropic_client: anthropic.AsyncAnthropic,
 ) -> list[_LlmObligationItem]:
     """Call the configured chat model and parse structured obligations JSON for one chunk."""
-    if not settings.llm_api_key.strip():
+    if not settings.ANTHROPIC_API_KEY.strip():
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="LLM is not configured: set LLM_API_KEY or ANTHROPIC_API_KEY.",
+            detail="LLM is not configured: set ANTHROPIC_API_KEY or ANTHROPIC_API_KEY.",
         )
 
     system = (
