@@ -40,6 +40,7 @@ export async function disconnectProducer(): Promise<void> {
  * Topic name follows PRD / implementation plan ({@code obligation.mapped}).
  */
 export async function publishObligationMapped(payload: {
+  eventId: string
   obligationId: string
   approvedBy: string
   controlIds: string[]

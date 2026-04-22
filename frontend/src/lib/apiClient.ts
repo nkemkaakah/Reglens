@@ -12,6 +12,9 @@ export const CATALOG_API_BASE_URL =
 export const MAPPING_API_BASE_URL =
   import.meta.env.VITE_MAPPING_API_URL ?? 'http://localhost:3000'
 
+export const IMPACT_API_BASE_URL =
+  import.meta.env.VITE_IMPACT_API_URL ?? 'http://localhost:8082'
+
 type ApiError = Error & { status?: number; body?: string }
 
 async function parseError(response: Response): Promise<ApiError> {

@@ -152,3 +152,22 @@ export interface MappingSuggestResponse {
   suggestions: MappingSuggestion[]
 }
 
+export interface ImpactTaskRow {
+  systemId: string
+  systemRef: string
+  displayName: string
+  tags: string[]
+  tasks: string[]
+}
+
+export interface ImpactResponse {
+  obligationId: string
+  eventId: string
+  summary: string
+  suggestedTasks: ImpactTaskRow[]
+  generatedBy: string
+  generatedAt: string
+  reviewedBy: string | null
+  reviewedAt: string | null
+}
+

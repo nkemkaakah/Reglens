@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { ZodError, z } from 'zod'
+import { randomUUID } from 'node:crypto'
 import * as obligationClient from '../clients/obligationClient.js'
 import * as catalogClient from '../clients/catalogClient.js'
 import { publishObligationMapped } from '../kafka/producer.js'
@@ -121,6 +122,7 @@ router.post('/:obligationId/mappings', async (req, res, next) => {
     await obligationClient.postSystemMappings(obligationId, systemRows)
 
     await publishObligationMapped({
+      eventId: randomUUID(),
       obligationId,
       approvedBy: body.approvedBy,
       controlIds: body.controls.map((c) => c.controlId),
