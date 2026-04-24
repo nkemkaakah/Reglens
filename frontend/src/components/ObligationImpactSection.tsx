@@ -63,6 +63,40 @@ function formatGeneratedAt(iso: string): string {
   return dt.toLocaleString()
 }
 
+/** Keeps long model prose scannable; full text still in DOM for copy/search. */
+function ExpandableProse({
+  text,
+  className = '',
+  collapsedClassName = 'line-clamp-4',
+  charThreshold = 220,
+}: {
+  text: string
+  className?: string
+  collapsedClassName?: string
+  charThreshold?: number
+}) {
+  const [open, setOpen] = useState(false)
+  const needsToggle = text.length > charThreshold
+  return (
+    <div>
+      <p
+        className={`${className} ${!open && needsToggle ? collapsedClassName : ''} [overflow-wrap:anywhere]`}
+      >
+        {text}
+      </p>
+      {needsToggle ? (
+        <button
+          type="button"
+          className="mt-1.5 text-xs font-medium text-brand hover:underline"
+          onClick={() => setOpen((v) => !v)}
+        >
+          {open ? 'Show less' : 'Show more'}
+        </button>
+      ) : null}
+    </div>
+  )
+}
+
 function buildTicketText(args: {
   obligationRef: string
   system: ImpactTaskRow
@@ -158,8 +192,8 @@ export function ObligationImpactSection({ obligationId, obligationRef }: Obligat
             Impact & backlog hints
           </p>
           <p className="mt-2 text-sm leading-relaxed text-app-muted">
-            Structured engineering impact: summary, key bullets, per-system rationale, gaps, evidence, and
-            ticket-shaped tasks. Appears after approved mappings are processed (Kafka → impact-service).
+            Tight, scannable impact: summary, key bullets, per-system scope, gap, evidence, and backlog-ready
+            tasks. Appears after approved mappings are processed.
           </p>
         </div>
         <button
@@ -213,9 +247,13 @@ export function ObligationImpactSection({ obligationId, obligationRef }: Obligat
                 Key engineering impacts
               </p>
               <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-relaxed text-app-text">
-                {(impactQuery.data.keyEngineeringImpacts ?? []).map((line) => (
-                  <li key={line} className="[overflow-wrap:anywhere]">
-                    {line}
+                {(impactQuery.data.keyEngineeringImpacts ?? []).map((line, i) => (
+                  <li key={`${i}-${line.slice(0, 48)}`} className="marker:text-app-muted">
+                    {line.length > 160 ? (
+                      <ExpandableProse text={line} charThreshold={140} collapsedClassName="line-clamp-2" />
+                    ) : (
+                      <span className="[overflow-wrap:anywhere]">{line}</span>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -227,9 +265,9 @@ export function ObligationImpactSection({ obligationId, obligationRef }: Obligat
               <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-app-muted">
                 Compliance gap
               </p>
-              <p className="mt-3 text-sm leading-relaxed text-app-text [overflow-wrap:anywhere]">
-                {impactQuery.data.complianceGap}
-              </p>
+              <div className="mt-3 text-sm leading-relaxed text-app-text">
+                <ExpandableProse text={impactQuery.data.complianceGap} charThreshold={240} />
+              </div>
             </div>
           ) : null}
 
@@ -267,9 +305,12 @@ export function ObligationImpactSection({ obligationId, obligationRef }: Obligat
                         <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-app-muted">
                           Why this system
                         </p>
-                        <p className="mt-1.5 leading-relaxed text-app-text [overflow-wrap:anywhere]">
-                          {sys.impactReason}
-                        </p>
+                        <ExpandableProse
+                          text={sys.impactReason}
+                          className="mt-1.5 text-sm leading-relaxed text-app-text"
+                          charThreshold={200}
+                          collapsedClassName="line-clamp-3"
+                        />
                       </div>
                     ) : null}
 
@@ -278,7 +319,12 @@ export function ObligationImpactSection({ obligationId, obligationRef }: Obligat
                         <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-app-muted">
                           Gap
                         </p>
-                        <p className="mt-1 text-sm leading-relaxed [overflow-wrap:anywhere]">{sys.complianceGap}</p>
+                        <ExpandableProse
+                          text={sys.complianceGap}
+                          className="mt-1 text-sm leading-relaxed text-app-text"
+                          charThreshold={200}
+                          collapsedClassName="line-clamp-3"
+                        />
                       </div>
                     ) : null}
 
@@ -287,9 +333,12 @@ export function ObligationImpactSection({ obligationId, obligationRef }: Obligat
                         <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-app-muted">
                           Evidence
                         </p>
-                        <p className="mt-1.5 whitespace-pre-wrap leading-relaxed text-app-text [overflow-wrap:anywhere]">
-                          {sys.evidenceRequired}
-                        </p>
+                        <ExpandableProse
+                          text={sys.evidenceRequired}
+                          className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed text-app-text"
+                          charThreshold={220}
+                          collapsedClassName="line-clamp-3"
+                        />
                       </div>
                     ) : null}
 
@@ -314,9 +363,13 @@ export function ObligationImpactSection({ obligationId, obligationRef }: Obligat
                                 ) : null}
                               </div>
                               {task.description?.trim() ? (
-                                <p className="text-sm leading-relaxed text-app-muted [overflow-wrap:anywhere]">
-                                  {task.description}
-                                </p>
+                                <div className="text-sm leading-relaxed text-app-muted">
+                                  <ExpandableProse
+                                    text={task.description.trim()}
+                                    charThreshold={180}
+                                    collapsedClassName="line-clamp-3"
+                                  />
+                                </div>
                               ) : null}
                               {(task.obligationRef?.trim() || task.linkedControlRefs?.length) ? (
                                 <p className="text-xs text-app-muted [overflow-wrap:anywhere]">

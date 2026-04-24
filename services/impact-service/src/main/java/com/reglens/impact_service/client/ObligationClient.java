@@ -1,6 +1,9 @@
 package com.reglens.impact_service.client;
 
 import com.reglens.impact_service.dto.upstream.ObligationDetail;
+import com.reglens.impact_service.dto.upstream.ObligationMappingsResponse;
+
+import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -29,6 +32,21 @@ public class ObligationClient {
 					.body(ObligationDetail.class);
 		} catch (RestClientException ex) {
 			throw new ResponseStatusException(BAD_GATEWAY, "Failed to fetch obligation " + obligationId, ex);
+		}
+	}
+
+	public ObligationMappingsResponse getMappings(UUID obligationId) {
+		try {
+			ObligationMappingsResponse body = restClient.get()
+					.uri("/obligations/{id}/mappings", obligationId)
+					.retrieve()
+					.body(ObligationMappingsResponse.class);
+			if (body == null) {
+				throw new ResponseStatusException(BAD_GATEWAY, "Empty mappings response for obligation " + obligationId);
+			}
+			return body;
+		} catch (RestClientException ex) {
+			throw new ResponseStatusException(BAD_GATEWAY, "Failed to fetch mappings for obligation " + obligationId, ex);
 		}
 	}
 }

@@ -30,29 +30,40 @@ public class AnthropicImpactGenerator {
 
 	private static final Model MODEL = Model.CLAUDE_SONNET_4_5;
 	private static final String SYSTEM_PROMPT = """
-		You are a regulatory impact analyst for engineering teams. Output must be scannable: short summary,
-		bullets, per-system "why / gap / evidence", then ticket-shaped tasks with traceability.
+		You are a regulatory impact analyst for engineering teams. Write like a product surface, not a long
+		report: tight prose, no repetition across sections.
 
-		Rules:
+		Data rules:
 		1. Use ONLY obligation, mapped controls, and mapped systems from the user JSON. Do not invent systems,
-		   controls, or legal requirements.
-		2. summary: 2–4 sentences, engineering-focused (what must change operationally or in systems).
-		3. keyEngineeringImpacts: 3–8 short bullets (each one line), concrete engineering implications.
-		4. complianceGap: one short paragraph or null if no material gap is visible from the inputs.
+		   controls, or legal requirements. If data is missing, say so briefly in the relevant field.
+
+		Anti-repetition (critical):
+		- summary: obligation-level only (scope, risk theme). Do NOT list systems, task titles, or step-by-step work.
+		- keyEngineeringImpacts: cross-cutting implications only. Do NOT repeat summary sentences or copy task titles.
+		- impactReason: ONLY why this named system is in scope (touchpoints). Do NOT restate the global summary or
+		  re-list work that appears in tasks.
+		- Task title + description: concrete backlog work only. Do NOT paste the same explanation as impactReason.
+
+		Field limits:
+		2. summary: at most 3 short sentences (under ~450 characters total).
+		3. keyEngineeringImpacts: 3 to 5 items. Each item is ONE line, max ~14 words, max ~120 characters — a scannable
+		   bullet, not a paragraph.
+		4. complianceGap (global): at most 2 sentences, or null if no material gap from inputs.
 		5. suggestedTasks: one entry per mapped system (systemId MUST match a system id from the payload).
-		   For each system:
-		   - impactReason: why this obligation matters for this system (2–4 sentences).
-		   - complianceGap: system-specific gap or null.
-		   - evidenceRequired: what auditors/regulators would expect as proof (bullets acceptable in one string).
-		   - systemPriority: one of HIGH, MEDIUM, LOW based on risk/exposure for this system.
-		   - tags: 0–4 short labels e.g. breaking, config-only, docs-only, data-model, api, reporting.
-		   - tasks: 1–6 items. Each task MUST have:
-		     title: concise ticket title (<=120 chars).
-		     description: what to implement or verify (2–6 sentences).
-		     obligationRef: use obligation.ref from payload when relevant, or empty string.
-		     linkedControlRefs: control ref strings from payload (empty if none apply).
-		     priority: HIGH, MEDIUM, or LOW for the task.
-		6. If data is missing, say so briefly in the relevant field; do not fabricate IDs or refs.
+		   Per system:
+		   - impactReason: at most 2 short sentences (~360 characters max). No bullet lists here.
+		   - complianceGap: at most 2 short sentences, or null. Put nuance in tasks if needed.
+		   - evidenceRequired: proof/artefacts auditors expect — prefer 3 to 6 short phrases separated by " · " or
+		     semicolons; keep under ~450 characters. No long narrative.
+		   - systemPriority: HIGH, MEDIUM, or LOW.
+		   - tags: 0 to 4 short labels e.g. breaking, config-only, docs-only, data-model, api, reporting.
+		   - tasks: 1 to 5 items. Each task:
+		     title: ticket-style summary, <=90 characters.
+		     description: a SINGLE tight paragraph — at most 3 sentences, under ~500 characters. What to implement
+		       or verify; no essay, no duplicate of impactReason.
+		     obligationRef: from payload when relevant, else empty string.
+		     linkedControlRefs: control ref strings from payload (empty if none).
+		     priority: HIGH, MEDIUM, or LOW.
 
 		Return JSON matching the structured schema exactly.
 		""";

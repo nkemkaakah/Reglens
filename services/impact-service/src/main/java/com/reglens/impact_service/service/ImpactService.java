@@ -2,6 +2,7 @@ package com.reglens.impact_service.service;
 
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.UUID;
 
@@ -26,6 +27,7 @@ import com.reglens.impact_service.dto.ImpactTaskRow;
 import com.reglens.impact_service.dto.ObligationMappedEvent;
 import com.reglens.impact_service.dto.upstream.ControlSummary;
 import com.reglens.impact_service.dto.upstream.ObligationDetail;
+import com.reglens.impact_service.dto.upstream.ObligationMappingsResponse;
 import com.reglens.impact_service.dto.upstream.SystemSummary;
 import com.reglens.impact_service.repository.ImpactAnalysisRepository;
 
@@ -85,12 +87,13 @@ public class ImpactService {
 		}
 
 		ObligationDetail obligation = obligationClient.getObligation(event.obligationId().toString());
+		ObligationMappingsResponse mappings = obligationClient.getMappings(event.obligationId());
 		List<ControlSummary> controls = new ArrayList<>();
-		for (UUID controlId : safeList(event.controlIds())) {
+		for (UUID controlId : distinctControlIds(mappings)) {
 			controls.add(catalogClient.getControl(controlId));
 		}
 		List<SystemSummary> systems = new ArrayList<>();
-		for (UUID systemId : safeList(event.systemIds())) {
+		for (UUID systemId : distinctSystemIds(mappings)) {
 			systems.add(catalogClient.getSystem(systemId));
 		}
 
@@ -125,6 +128,26 @@ public class ImpactService {
 
 	private static <T> List<T> safeList(List<T> list) {
 		return list == null ? List.of() : list;
+	}
+
+	private static List<UUID> distinctControlIds(ObligationMappingsResponse mappings) {
+		LinkedHashSet<UUID> ids = new LinkedHashSet<>();
+		for (ObligationMappingsResponse.ControlMappingRef row : safeList(mappings.controls())) {
+			if (row != null && row.controlId() != null) {
+				ids.add(row.controlId());
+			}
+		}
+		return new ArrayList<>(ids);
+	}
+
+	private static List<UUID> distinctSystemIds(ObligationMappingsResponse mappings) {
+		LinkedHashSet<UUID> ids = new LinkedHashSet<>();
+		for (ObligationMappingsResponse.SystemMappingRef row : safeList(mappings.systems())) {
+			if (row != null && row.systemId() != null) {
+				ids.add(row.systemId());
+			}
+		}
+		return new ArrayList<>(ids);
 	}
 
 	private JsonNode writeStringList(List<String> items) {
