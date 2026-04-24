@@ -21,6 +21,7 @@ import com.reglens.impact_service.client.ObligationClient;
 import com.reglens.impact_service.domain.ImpactAnalysis;
 import com.reglens.impact_service.dto.ImpactGeneratedEvent;
 import com.reglens.impact_service.dto.ImpactResponse;
+import com.reglens.impact_service.dto.ImpactTaskItem;
 import com.reglens.impact_service.dto.ImpactTaskRow;
 import com.reglens.impact_service.dto.ObligationMappedEvent;
 import com.reglens.impact_service.dto.upstream.ControlSummary;
@@ -66,6 +67,8 @@ public class ImpactService {
 				row.getObligationId(),
 				row.getEventId(),
 				row.getSummary(),
+				parseKeyEngineeringImpacts(row.getKeyEngineeringImpacts()),
+				row.getComplianceGap(),
 				tasks,
 				row.getGeneratedBy(),
 				row.getCreatedAt(),
@@ -96,6 +99,8 @@ public class ImpactService {
 		target.setObligationId(event.obligationId());
 		target.setEventId(event.eventId());
 		target.setSummary(generated.summary());
+		target.setKeyEngineeringImpacts(writeStringList(generated.keyEngineeringImpacts()));
+		target.setComplianceGap(generated.complianceGap());
 		target.setSuggestedTasks(writeTasks(generated.suggestedTasks()));
 		target.setGeneratedBy(generated.generatedBy());
 		target.setCreatedAt(OffsetDateTime.now());
@@ -122,12 +127,122 @@ public class ImpactService {
 		return list == null ? List.of() : list;
 	}
 
+	private JsonNode writeStringList(List<String> items) {
+		return objectMapper.valueToTree(items == null ? List.of() : items);
+	}
+
+	private List<String> parseKeyEngineeringImpacts(JsonNode value) {
+		if (value == null || value.isNull()) {
+			return List.of();
+		}
+		try {
+			return objectMapper.convertValue(value, new TypeReference<>() {
+			});
+		} catch (IllegalArgumentException ex) {
+			return List.of();
+		}
+	}
+
 	private JsonNode writeTasks(List<ImpactTaskRow> tasks) {
 		return objectMapper.valueToTree(tasks == null ? List.of() : tasks);
 	}
 
 	private List<ImpactTaskRow> parseTasks(JsonNode value) {
-		return objectMapper.convertValue(value, new TypeReference<>() {
-		});
+		if (value == null || value.isNull() || !value.isArray()) {
+			return List.of();
+		}
+		try {
+			return objectMapper.convertValue(value, new TypeReference<>() {
+			});
+		} catch (IllegalArgumentException ex) {
+			return parseLegacySuggestedTasks(value);
+		}
+	}
+
+	/**
+	 * Older analyses stored {@code tasks} as string[]; coerce into {@link ImpactTaskItem} rows.
+	 */
+	private List<ImpactTaskRow> parseLegacySuggestedTasks(JsonNode array) {
+		List<ImpactTaskRow> rows = new ArrayList<>();
+		for (JsonNode node : array) {
+			if (!node.isObject()) {
+				continue;
+			}
+			String systemIdText = textOrNull(node.get("systemId"));
+			if (systemIdText == null) {
+				continue;
+			}
+			UUID systemId;
+			try {
+				systemId = UUID.fromString(systemIdText);
+			} catch (IllegalArgumentException ex) {
+				continue;
+			}
+			List<String> tags = readStringArray(node.get("tags"));
+			JsonNode tasksNode = node.get("tasks");
+			List<ImpactTaskItem> items = new ArrayList<>();
+			if (tasksNode != null && tasksNode.isArray()) {
+				for (JsonNode t : tasksNode) {
+					if (t.isTextual()) {
+						String body = t.asText().trim();
+						if (!body.isEmpty()) {
+							items.add(new ImpactTaskItem(ticketTitleFromBody(body), body, "", List.of(), ""));
+						}
+					}
+				}
+			}
+			rows.add(new ImpactTaskRow(
+					systemId,
+					textOrEmpty(node, "systemRef"),
+					textOrEmpty(node, "displayName"),
+					tags,
+					"",
+					null,
+					null,
+					"",
+					items
+			));
+		}
+		return rows;
+	}
+
+	private static String ticketTitleFromBody(String body) {
+		String oneLine = body.replace('\n', ' ').trim();
+		if (oneLine.length() <= 120) {
+			return oneLine;
+		}
+		return oneLine.substring(0, 117) + "...";
+	}
+
+	private static String textOrNull(JsonNode n) {
+		if (n == null || n.isNull() || !n.isTextual()) {
+			return null;
+		}
+		String t = n.asText().trim();
+		return t.isEmpty() ? null : t;
+	}
+
+	private static String textOrEmpty(JsonNode parent, String field) {
+		JsonNode n = parent.get(field);
+		if (n == null || n.isNull() || !n.isTextual()) {
+			return "";
+		}
+		return n.asText().trim();
+	}
+
+	private static List<String> readStringArray(JsonNode node) {
+		if (node == null || !node.isArray()) {
+			return List.of();
+		}
+		List<String> out = new ArrayList<>();
+		for (JsonNode el : node) {
+			if (el.isTextual()) {
+				String v = el.asText().trim();
+				if (!v.isEmpty()) {
+					out.add(v);
+				}
+			}
+		}
+		return out;
 	}
 }

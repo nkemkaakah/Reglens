@@ -8,6 +8,8 @@ public record ImpactResponse(
 		UUID obligationId,
 		UUID eventId,
 		String summary,
+		List<String> keyEngineeringImpacts,
+		String complianceGap,
 		List<ImpactTaskRow> suggestedTasks,
 		String generatedBy,
 		OffsetDateTime generatedAt,

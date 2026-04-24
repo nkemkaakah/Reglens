@@ -1,11 +1,11 @@
 /**
- * Feature 5 — Impact analysis (PRD): summary + per-system backlog hints from impact-service,
- * after obligation.mapped is processed. GET /obligations/{id}/impact.
+ * Feature 5 — Impact analysis (PRD): structured summary, bullets, per-system rationale,
+ * gap/evidence, ticket-shaped tasks. GET /obligations/{id}/impact.
  */
 import { useQuery } from '@tanstack/react-query'
 import { useCallback, useMemo, useState } from 'react'
 import { apiFetchJson, IMPACT_API_BASE_URL } from '../lib/apiClient'
-import type { ImpactResponse, ImpactTaskRow } from '../types/api'
+import type { ImpactResponse, ImpactTaskItem, ImpactTaskRow } from '../types/api'
 import { StatusBadge } from './StatusBadge'
 
 type ObligationImpactSectionProps = {
@@ -35,6 +35,19 @@ function toneForImpactTag(tag: string): Parameters<typeof StatusBadge>[0]['tone'
   }
 }
 
+function toneForPriority(p: string): Parameters<typeof StatusBadge>[0]['tone'] {
+  switch (p.trim().toUpperCase()) {
+    case 'HIGH':
+      return 'risk'
+    case 'MEDIUM':
+      return 'warning'
+    case 'LOW':
+      return 'info'
+    default:
+      return 'info'
+  }
+}
+
 function formatImpactTagLabel(tag: string): string {
   return tag
     .trim()
@@ -53,23 +66,40 @@ function formatGeneratedAt(iso: string): string {
 function buildTicketText(args: {
   obligationRef: string
   system: ImpactTaskRow
-  task: string
+  task: ImpactTaskItem
   summary: string
 }): string {
   const summaryLine = args.summary.split('\n').map((l) => l.trim()).filter(Boolean)[0] ?? args.summary
+  const trace: string[] = []
+  if (args.task.obligationRef?.trim()) {
+    trace.push(`Obligation: ${args.task.obligationRef.trim()}`)
+  } else if (args.obligationRef.trim()) {
+    trace.push(`Obligation: ${args.obligationRef.trim()}`)
+  }
+  if (args.task.linkedControlRefs?.length) {
+    trace.push(`Controls: ${args.task.linkedControlRefs.join(', ')}`)
+  }
+  trace.push(`System: ${args.system.displayName} (${args.system.systemRef})`)
+
   return [
-    `[RegLens] ${args.obligationRef} — ${args.system.systemRef}`,
+    `[RegLens] ${args.task.title.trim() || args.obligationRef}`,
     '',
-    '## Task',
-    args.task,
+    '## Description',
+    args.task.description.trim() || '(no description)',
     '',
-    '## System',
-    `- ${args.system.displayName} (${args.system.systemRef})`,
-    '',
-    '## Obligation context',
+    '## Context',
     summaryLine,
     '',
-    args.system.tags.length ? `## Tags\n${args.system.tags.join(', ')}` : '',
+    args.system.impactReason?.trim()
+      ? `## Why this system\n${args.system.impactReason.trim()}`
+      : '',
+    args.system.complianceGap?.trim() ? `## Gap\n${args.system.complianceGap.trim()}` : '',
+    args.system.evidenceRequired?.trim()
+      ? `## Evidence\n${args.system.evidenceRequired.trim()}`
+      : '',
+    '## Traceability',
+    ...trace.map((l) => `- ${l}`),
+    args.task.priority?.trim() ? `\nPriority: ${args.task.priority.trim()}` : '',
   ]
     .filter(Boolean)
     .join('\n')
@@ -94,7 +124,7 @@ export function ObligationImpactSection({ obligationId, obligationRef }: Obligat
   const isOtherError = impactQuery.isError && status !== 404
 
   const handleCopy = useCallback(
-    async (system: ImpactTaskRow, task: string, taskIndex: number) => {
+    async (system: ImpactTaskRow, task: ImpactTaskItem, taskIndex: number) => {
       const key = `${system.systemId}-${taskIndex}`
       const text = buildTicketText({
         obligationRef,
@@ -128,8 +158,8 @@ export function ObligationImpactSection({ obligationId, obligationRef }: Obligat
             Impact & backlog hints
           </p>
           <p className="mt-2 text-sm leading-relaxed text-app-muted">
-            Engineering-oriented summary and suggested tasks per affected system. Appears after approved
-            mappings are processed (Kafka → impact-service).
+            Structured engineering impact: summary, key bullets, per-system rationale, gaps, evidence, and
+            ticket-shaped tasks. Appears after approved mappings are processed (Kafka → impact-service).
           </p>
         </div>
         <button
@@ -177,10 +207,36 @@ export function ObligationImpactSection({ obligationId, obligationRef }: Obligat
             </p>
           </div>
 
+          {(impactQuery.data.keyEngineeringImpacts ?? []).length ? (
+            <div className="rounded-lg border border-app-border bg-app-subtle p-5">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-app-muted">
+                Key engineering impacts
+              </p>
+              <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-relaxed text-app-text">
+                {(impactQuery.data.keyEngineeringImpacts ?? []).map((line) => (
+                  <li key={line} className="[overflow-wrap:anywhere]">
+                    {line}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          {impactQuery.data.complianceGap?.trim() ? (
+            <div className="rounded-lg border border-status-warning/35 bg-status-warning-soft/50 p-5">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-app-muted">
+                Compliance gap
+              </p>
+              <p className="mt-3 text-sm leading-relaxed text-app-text [overflow-wrap:anywhere]">
+                {impactQuery.data.complianceGap}
+              </p>
+            </div>
+          ) : null}
+
           <div>
-            <h4 className="text-sm font-semibold text-app-text">Per-system tasks</h4>
+            <h4 className="text-sm font-semibold text-app-text">Per-system impact & tasks</h4>
             {!impactQuery.data.suggestedTasks?.length ? (
-              <p className="mt-3 text-sm text-app-muted">No per-system tasks in this analysis.</p>
+              <p className="mt-3 text-sm text-app-muted">No per-system blocks in this analysis.</p>
             ) : (
               <ul className="mt-4 space-y-4">
                 {impactQuery.data.suggestedTasks.map((sys) => (
@@ -193,12 +249,50 @@ export function ObligationImpactSection({ obligationId, obligationRef }: Obligat
                         <p className="font-semibold text-app-text [overflow-wrap:anywhere]">{sys.displayName}</p>
                         <p className="mt-0.5 font-mono text-xs text-app-muted">{sys.systemRef}</p>
                       </div>
-                      <div className="flex flex-wrap gap-1.5">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {sys.systemPriority?.trim() ? (
+                          <StatusBadge
+                            label={sys.systemPriority.trim().toUpperCase()}
+                            tone={toneForPriority(sys.systemPriority)}
+                          />
+                        ) : null}
                         {(sys.tags ?? []).map((tag) => (
                           <StatusBadge key={tag} label={formatImpactTagLabel(tag)} tone={toneForImpactTag(tag)} />
                         ))}
                       </div>
                     </div>
+
+                    {sys.impactReason?.trim() ? (
+                      <div className="mt-3 border-t border-app-border pt-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-app-muted">
+                          Why this system
+                        </p>
+                        <p className="mt-1.5 leading-relaxed text-app-text [overflow-wrap:anywhere]">
+                          {sys.impactReason}
+                        </p>
+                      </div>
+                    ) : null}
+
+                    {sys.complianceGap?.trim() ? (
+                      <div className="mt-3 rounded-md border border-status-warning/30 bg-app-surface px-3 py-2">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-app-muted">
+                          Gap
+                        </p>
+                        <p className="mt-1 text-sm leading-relaxed [overflow-wrap:anywhere]">{sys.complianceGap}</p>
+                      </div>
+                    ) : null}
+
+                    {sys.evidenceRequired?.trim() ? (
+                      <div className="mt-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-app-muted">
+                          Evidence
+                        </p>
+                        <p className="mt-1.5 whitespace-pre-wrap leading-relaxed text-app-text [overflow-wrap:anywhere]">
+                          {sys.evidenceRequired}
+                        </p>
+                      </div>
+                    ) : null}
+
                     <ul className="mt-3 space-y-2 border-t border-app-border pt-3">
                       {(sys.tasks ?? []).map((task, idx) => {
                         const key = `${sys.systemId}-${idx}`
@@ -207,9 +301,34 @@ export function ObligationImpactSection({ obligationId, obligationRef }: Obligat
                             key={key}
                             className="flex flex-col gap-2 rounded-md border border-app-border/80 bg-app-surface p-3 sm:flex-row sm:items-start sm:justify-between"
                           >
-                            <p className="min-w-0 flex-1 leading-relaxed text-app-text [overflow-wrap:anywhere]">
-                              {task}
-                            </p>
+                            <div className="min-w-0 flex-1 space-y-1.5">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="font-medium text-app-text [overflow-wrap:anywhere]">
+                                  {task.title?.trim() || 'Task'}
+                                </p>
+                                {task.priority?.trim() ? (
+                                  <StatusBadge
+                                    label={task.priority.trim().toUpperCase()}
+                                    tone={toneForPriority(task.priority)}
+                                  />
+                                ) : null}
+                              </div>
+                              {task.description?.trim() ? (
+                                <p className="text-sm leading-relaxed text-app-muted [overflow-wrap:anywhere]">
+                                  {task.description}
+                                </p>
+                              ) : null}
+                              {(task.obligationRef?.trim() || task.linkedControlRefs?.length) ? (
+                                <p className="text-xs text-app-muted [overflow-wrap:anywhere]">
+                                  {task.obligationRef?.trim() ? (
+                                    <span className="mr-2">Obligation: {task.obligationRef}</span>
+                                  ) : null}
+                                  {task.linkedControlRefs?.length ? (
+                                    <span>Controls: {task.linkedControlRefs.join(', ')}</span>
+                                  ) : null}
+                                </p>
+                              ) : null}
+                            </div>
                             <button
                               type="button"
                               className="shrink-0 rounded-md border border-brand/40 bg-brand-muted px-3 py-1.5 text-xs font-medium text-brand transition hover:opacity-90"

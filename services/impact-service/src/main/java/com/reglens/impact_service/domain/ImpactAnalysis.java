@@ -31,6 +31,13 @@ public class ImpactAnalysis {
 	private String summary;
 
 	@JdbcTypeCode(SqlTypes.JSON)
+	@Column(name = "key_engineering_impacts", columnDefinition = "jsonb")
+	private JsonNode keyEngineeringImpacts;
+
+	@Column(name = "compliance_gap")
+	private String complianceGap;
+
+	@JdbcTypeCode(SqlTypes.JSON)
 	@Column(name = "suggested_tasks", nullable = false, columnDefinition = "jsonb")
 	private JsonNode suggestedTasks;
 
@@ -76,6 +83,22 @@ public class ImpactAnalysis {
 
 	public void setSummary(String summary) {
 		this.summary = summary;
+	}
+
+	public JsonNode getKeyEngineeringImpacts() {
+		return keyEngineeringImpacts;
+	}
+
+	public void setKeyEngineeringImpacts(JsonNode keyEngineeringImpacts) {
+		this.keyEngineeringImpacts = keyEngineeringImpacts;
+	}
+
+	public String getComplianceGap() {
+		return complianceGap;
+	}
+
+	public void setComplianceGap(String complianceGap) {
+		this.complianceGap = complianceGap;
 	}
 
 	public JsonNode getSuggestedTasks() {

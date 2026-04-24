@@ -152,18 +152,34 @@ export interface MappingSuggestResponse {
   suggestions: MappingSuggestion[]
 }
 
+/** One ticket-shaped task from impact-service (title + body + traceability). */
+export interface ImpactTaskItem {
+  title: string
+  description: string
+  obligationRef: string
+  linkedControlRefs: string[]
+  priority: string
+}
+
 export interface ImpactTaskRow {
   systemId: string
   systemRef: string
   displayName: string
   tags: string[]
-  tasks: string[]
+  impactReason?: string
+  complianceGap?: string | null
+  evidenceRequired?: string | null
+  systemPriority?: string
+  tasks: ImpactTaskItem[]
 }
 
 export interface ImpactResponse {
   obligationId: string
   eventId: string
   summary: string
+  /** Present on impact-service >= structured impact; treat as [] if missing. */
+  keyEngineeringImpacts?: string[]
+  complianceGap?: string | null
   suggestedTasks: ImpactTaskRow[]
   generatedBy: string
   generatedAt: string
