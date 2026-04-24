@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -103,9 +104,7 @@ public class ObligationService {
 			obligation.setRiskRating(request.riskRating().trim().toUpperCase());
 		}
 		obligation.setEffectiveDate(request.effectiveDate());
-		if (StringUtils.hasText(request.status())) {
-			obligation.setStatus(request.status().trim().toUpperCase());
-		}
+		obligation.setStatus("UNMAPPED");
 
 		return toResponse(obligationRepository.save(obligation));
 	}
@@ -117,6 +116,48 @@ public class ObligationService {
 	@Transactional
 	public List<ObligationResponse> createAll(List<ObligationRequest> requests) {
 		return requests.stream().map(this::create).toList();
+	}
+
+	/**
+	 * Called when mapping-service begins “Suggest mappings” — moves {@code UNMAPPED} to {@code IN_PROGRESS}
+	 * only; idempotent for other statuses.
+	 */
+	@Transactional
+	public void onMappingSuggestStarted(UUID obligationId) {
+		Obligation obligation = obligationRepository.findById(obligationId)
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Obligation not found: " + obligationId));
+		if (!"UNMAPPED".equalsIgnoreCase(obligation.getStatus())) {
+			return;
+		}
+		obligation.setStatus("IN_PROGRESS");
+		obligationRepository.save(obligation);
+	}
+
+	/**
+	 * Manual compliance sign-off: {@code MAPPED} → {@code IMPLEMENTED} only. Reversal and other
+	 * transitions are rejected (except idempotent repeat when already {@code IMPLEMENTED}).
+	 */
+	@Transactional
+	public ObligationResponse patchStatus(UUID obligationId, String requestedStatus, String confirmedBy) {
+		if (!StringUtils.hasText(requestedStatus) || !"IMPLEMENTED".equalsIgnoreCase(requestedStatus.trim())) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only status IMPLEMENTED is supported");
+		}
+		Obligation obligation = obligationRepository.findById(obligationId)
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Obligation not found: " + obligationId));
+		String current = obligation.getStatus();
+		if ("IMPLEMENTED".equalsIgnoreCase(current)) {
+			return toResponse(obligation);
+		}
+		if (!"MAPPED".equalsIgnoreCase(current)) {
+			throw new ResponseStatusException(
+					HttpStatus.CONFLICT,
+					"Obligation must be MAPPED before marking IMPLEMENTED (current: " + current + ")"
+			);
+		}
+		obligation.setStatus("IMPLEMENTED");
+		obligation.setTriagedBy(confirmedBy.trim());
+		obligation.setTriagedAt(OffsetDateTime.now());
+		return toResponse(obligationRepository.save(obligation));
 	}
 
 	private ObligationResponse toResponse(Obligation obligation) {

@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef } from 'react'
 import { ObligationImpactSection } from './ObligationImpactSection'
 import { ObligationMappingsSection } from './ObligationMappingsSection'
@@ -52,10 +52,28 @@ function formatDate(value: string | null | undefined): string {
   return dt.toLocaleDateString()
 }
 
+const IMPLEMENTER_FALLBACK = 'web-ui@reglens.local'
+
 export function ObligationDrawer({ obligationId, onClose, initialPanel }: ObligationDrawerProps) {
+  const queryClient = useQueryClient()
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const mappingsSectionRef = useRef<HTMLDivElement>(null)
   const impactSectionRef = useRef<HTMLDivElement>(null)
+
+  const markImplementedMutation = useMutation({
+    mutationFn: async () => {
+      const confirmedBy =
+        (import.meta.env.VITE_REGLENS_IMPLEMENTER_EMAIL as string | undefined)?.trim() ||
+        IMPLEMENTER_FALLBACK
+      return apiFetchJson<ObligationSummary>(OBLIGATION_API_BASE_URL, `/obligations/${obligationId}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'IMPLEMENTED', confirmedBy }),
+      })
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['obligations', obligationId] })
+    },
+  })
 
   const obligationQuery = useQuery({
     queryKey: ['obligations', obligationId],
@@ -131,6 +149,25 @@ export function ObligationDrawer({ obligationId, onClose, initialPanel }: Obliga
                 ) : null}
                 {obligationQuery.isError ? (
                   <StatusBadge label="Failed to load" tone="risk" />
+                ) : null}
+                {obligation?.status === 'MAPPED' ? (
+                  <button
+                    type="button"
+                    disabled={markImplementedMutation.isPending}
+                    className="shrink-0 rounded-md border border-status-success/40 bg-status-success-soft px-3 py-1.5 text-xs font-semibold text-status-success transition hover:bg-status-success/15 disabled:opacity-50"
+                    onClick={() => {
+                      if (
+                        !window.confirm(
+                          'Mark this obligation as implemented? This sign-off cannot be undone from the UI.',
+                        )
+                      ) {
+                        return
+                      }
+                      markImplementedMutation.mutate()
+                    }}
+                  >
+                    Mark implemented
+                  </button>
                 ) : null}
               </div>
             </div>

@@ -1,5 +1,6 @@
 package com.reglens.obligation_service.integration;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.reglens.obligation_service.TestcontainersConfiguration;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -15,8 +16,8 @@ import java.util.UUID;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.hasItem;
-import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -33,11 +34,33 @@ class ObligationApiIntegrationTest {
 
 	private static final String SEED_DOCUMENT_ID = "d1000000-0000-0000-0000-000000000001";
 	private static final String SEED_OBLIGATION_ID = "e1000000-0000-0000-0000-000000000001";
+	private static final String STUB_CONTROL_ID = "c1000000-0000-0000-0000-000000000001";
 	/** Must match {@code app.security.service-token} in {@code src/test/resources/application.properties}. */
 	private static final String SERVICE_TOKEN = "test-service-token";
 
 	@Autowired
 	private MockMvc mockMvc;
+
+	@Autowired
+	private ObjectMapper objectMapper;
+
+	private String postCreateObligation(String ref) throws Exception {
+		var mvcResult = mockMvc.perform(post("/obligations")
+						.header("Authorization", "Bearer " + SERVICE_TOKEN)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "documentId": "%s",
+								  "ref": "%s",
+								  "title": "%s",
+								  "summary": "s",
+								  "fullText": "f"
+								}
+								""".formatted(SEED_DOCUMENT_ID, ref, ref)))
+				.andExpect(status().isCreated())
+				.andReturn();
+		return objectMapper.readTree(mvcResult.getResponse().getContentAsString()).get("id").asText();
+	}
 
 	@Test
 	@DisplayName("GET /obligations returns a page containing Flyway seed obligations")
@@ -59,16 +82,25 @@ class ObligationApiIntegrationTest {
 	@Test
 	@DisplayName("GET /obligations filters by statusIn (comma-separated, precedence over status)")
 	void listObligations_filtersByStatusIn() throws Exception {
+		String refUnmapped = "IT-STATUSIN-UM-" + UUID.randomUUID();
+		String refInProgress = "IT-STATUSIN-IP-" + UUID.randomUUID();
+		postCreateObligation(refUnmapped);
+		String idInProgress = postCreateObligation(refInProgress);
+		mockMvc.perform(post("/obligations/" + idInProgress + "/mapping-suggest-started")
+						.header("Authorization", "Bearer " + SERVICE_TOKEN))
+				.andExpect(status().isNoContent());
+
 		mockMvc.perform(
 						get("/obligations")
 								.param("status", "MAPPED")
 								.param("statusIn", "UNMAPPED,IN_PROGRESS")
-								.param("size", "20"))
+								.param("q", "IT-STATUSIN-")
+								.param("size", "50"))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.content.length()").value(2))
-				.andExpect(jsonPath("$.content[*].ref", hasItem("FCA-AI-2024-OB-002")))
-				.andExpect(jsonPath("$.content[*].ref", hasItem("FCA-AI-2024-OB-003")))
-				.andExpect(jsonPath("$.content[*].ref", not(hasItem("FCA-AI-2024-OB-001"))));
+				.andExpect(jsonPath("$.content[*].ref", hasItem(refUnmapped)))
+				.andExpect(jsonPath("$.content[*].ref", hasItem(refInProgress)))
+				.andExpect(jsonPath("$.content[?(@.ref == '" + refUnmapped + "')].status", hasItem("UNMAPPED")))
+				.andExpect(jsonPath("$.content[?(@.ref == '" + refInProgress + "')].status", hasItem("IN_PROGRESS")));
 	}
 
 	@Test
@@ -245,7 +277,29 @@ class ObligationApiIntegrationTest {
 				.andExpect(jsonPath("$.id").exists())
 				.andExpect(jsonPath("$.ref").value(ref))
 				.andExpect(jsonPath("$.documentId").value(SEED_DOCUMENT_ID))
-				.andExpect(jsonPath("$.riskRating").value("LOW"));
+				.andExpect(jsonPath("$.riskRating").value("LOW"))
+				.andExpect(jsonPath("$.status").value("UNMAPPED"));
+	}
+
+	@Test
+	@DisplayName("POST /obligations ignores request status — always persists UNMAPPED")
+	void createObligation_ignoresRequestStatus() throws Exception {
+		String ref = "IT-OB-STATUS-" + UUID.randomUUID();
+		mockMvc.perform(post("/obligations")
+						.header("Authorization", "Bearer " + SERVICE_TOKEN)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{
+								  "documentId": "%s",
+								  "ref": "%s",
+								  "title": "t",
+								  "summary": "s",
+								  "fullText": "f",
+								  "status": "MAPPED"
+								}
+								""".formatted(SEED_DOCUMENT_ID, ref)))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.status").value("UNMAPPED"));
 	}
 
 	@Test
@@ -288,14 +342,98 @@ class ObligationApiIntegrationTest {
 								    "ref": "%s",
 								    "title": "Batch two",
 								    "summary": "s2",
-								    "fullText": "f2"
+								    "fullText": "f2",
+								    "status": "IN_PROGRESS"
 								  }
 								]
 								""".formatted(SEED_DOCUMENT_ID, r1, SEED_DOCUMENT_ID, r2)))
 				.andExpect(status().isCreated())
 				.andExpect(jsonPath("$", hasSize(2)))
 				.andExpect(jsonPath("$[0].ref").value(r1))
-				.andExpect(jsonPath("$[1].ref").value(r2));
+				.andExpect(jsonPath("$[1].ref").value(r2))
+				.andExpect(jsonPath("$[0].status").value("UNMAPPED"))
+				.andExpect(jsonPath("$[1].status").value("UNMAPPED"));
+	}
+
+	@Test
+	@DisplayName("POST /obligations/{id}/mapping-suggest-started returns 403 without token")
+	void mappingSuggestStarted_requiresAuth() throws Exception {
+		mockMvc.perform(post("/obligations/" + SEED_OBLIGATION_ID + "/mapping-suggest-started"))
+				.andExpect(status().isForbidden());
+	}
+
+	@Test
+	@DisplayName("POST /obligations/{id}/mapping-suggest-started moves UNMAPPED to IN_PROGRESS")
+	void mappingSuggestStarted_unmappedToInProgress() throws Exception {
+		String id = postCreateObligation("IT-SUGGEST-" + UUID.randomUUID());
+		mockMvc.perform(get("/obligations/" + id))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.status").value("UNMAPPED"));
+		mockMvc.perform(post("/obligations/" + id + "/mapping-suggest-started")
+						.header("Authorization", "Bearer " + SERVICE_TOKEN))
+				.andExpect(status().isNoContent());
+		mockMvc.perform(get("/obligations/" + id))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.status").value("IN_PROGRESS"));
+	}
+
+	@Test
+	@DisplayName("PATCH /obligations/{id}/status returns 403 without token")
+	void patchStatus_requiresAuth() throws Exception {
+		mockMvc.perform(patch("/obligations/" + SEED_OBLIGATION_ID + "/status")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{ "status": "IMPLEMENTED", "confirmedBy": "u@reglens" }
+								"""))
+				.andExpect(status().isForbidden());
+	}
+
+	@Test
+	@DisplayName("PATCH /obligations/{id}/status MAPPED → IMPLEMENTED")
+	void patchStatus_mappedToImplemented() throws Exception {
+		String id = postCreateObligation("IT-IMPL-" + UUID.randomUUID());
+		mockMvc.perform(post("/obligations/" + id + "/mappings/controls")
+						.header("Authorization", "Bearer " + SERVICE_TOKEN)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								[ { "controlId": "%s", "source": "MANUAL", "approvedBy": "t@reglens" } ]
+								""".formatted(STUB_CONTROL_ID)))
+				.andExpect(status().isOk());
+		mockMvc.perform(get("/obligations/" + id))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.status").value("MAPPED"));
+
+		mockMvc.perform(patch("/obligations/" + id + "/status")
+						.header("Authorization", "Bearer " + SERVICE_TOKEN)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{ "status": "IMPLEMENTED", "confirmedBy": "lead@reglens" }
+								"""))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.status").value("IMPLEMENTED"))
+				.andExpect(jsonPath("$.triagedBy").value("lead@reglens"));
+
+		mockMvc.perform(patch("/obligations/" + id + "/status")
+						.header("Authorization", "Bearer " + SERVICE_TOKEN)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{ "status": "IMPLEMENTED", "confirmedBy": "again@reglens" }
+								"""))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.status").value("IMPLEMENTED"));
+	}
+
+	@Test
+	@DisplayName("PATCH /obligations/{id}/status returns 409 when not MAPPED")
+	void patchStatus_conflictWhenUnmapped() throws Exception {
+		String id = postCreateObligation("IT-NOIMPL-" + UUID.randomUUID());
+		mockMvc.perform(patch("/obligations/" + id + "/status")
+						.header("Authorization", "Bearer " + SERVICE_TOKEN)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{ "status": "IMPLEMENTED", "confirmedBy": "u@reglens" }
+								"""))
+				.andExpect(status().isConflict());
 	}
 
 	@Test

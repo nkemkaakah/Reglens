@@ -58,6 +58,7 @@ router.post('/:obligationId/suggest-mappings', async (req, res, next) => {
       })
       return
     }
+    await obligationClient.postMappingSuggestStarted(obligationId)
     const suggestions = await runSuggestMappings(obligation, controls, systems)
     res.json({ obligationId, suggestions })
   } catch (e) {

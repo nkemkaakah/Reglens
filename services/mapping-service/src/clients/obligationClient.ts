@@ -27,6 +27,24 @@ export async function getObligation(obligationId: string): Promise<ObligationDet
   return fetchJson<ObligationDetail>(`/obligations/${obligationId}`)
 }
 
+/** UNMAPPED → IN_PROGRESS when user starts Suggest mappings . */
+export async function postMappingSuggestStarted(obligationId: string): Promise<void> {
+  const path = `/obligations/${obligationId}/mapping-suggest-started`
+  const url = `${config.obligationServiceBaseUrl.replace(/\/$/, '')}${path}`
+  const ctrl = AbortSignal.timeout(config.upstreamTimeoutMs)
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { ...authHeaders() },
+    signal: ctrl,
+  })
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    log.warn('obligation-service error', { url, status: res.status, bodySnippet: body.slice(0, 500) })
+    throw new HttpError(res.status, `obligation-service returned ${res.status} for ${path}: ${body.slice(0, 200)}`)
+  }
+  log.info('POST obligation mapping-suggest-started', { obligationId })
+}
+
 export type ControlMappingPayload = {
   controlId: string
   confidence?: number | null

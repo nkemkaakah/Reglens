@@ -12,4 +12,6 @@ public interface ObligationControlMappingRepository extends JpaRepository<Obliga
 	List<ObligationControlMapping> findByObligation_Id(UUID obligationId);
 
 	Optional<ObligationControlMapping> findByObligation_IdAndControlId(UUID obligationId, UUID controlId);
+
+	long countByObligation_Id(UUID obligationId);
 }

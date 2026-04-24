@@ -41,6 +41,8 @@ public class SecurityConfig {
 						.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 						.requestMatchers(HttpMethod.POST, "/documents", "/documents/**", "/obligations", "/obligations/**")
 						.authenticated()
+						.requestMatchers(HttpMethod.PATCH, "/obligations/**")
+						.authenticated()
 						.anyRequest().denyAll()
 				)
 				.addFilterBefore(serviceTokenAuthFilter, UsernamePasswordAuthenticationFilter.class);

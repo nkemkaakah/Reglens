@@ -110,6 +110,7 @@ public class MappingService {
 			row.setApprovedAt(now);
 			controlMappingRepository.save(row);
 		}
+		maybePromoteToMapped(obligationId);
 		return controlMappingRepository.findByObligation_Id(obligationId).stream()
 				.map(this::toControlRow)
 				.toList();
@@ -134,9 +135,34 @@ public class MappingService {
 			row.setApprovedAt(now);
 			systemMappingRepository.save(row);
 		}
+		maybePromoteToMapped(obligationId);
 		return systemMappingRepository.findByObligation_Id(obligationId).stream()
 				.map(this::toSystemRow)
 				.toList();
+	}
+
+	/**
+	 * First approved mapping promotes {@code UNMAPPED} or {@code IN_PROGRESS} to {@code MAPPED}.
+	 * Never downgrades {@code MAPPED} / {@code IMPLEMENTED} when mappings are removed later.
+	 */
+	private void maybePromoteToMapped(UUID obligationId) {
+		Obligation obligation = obligationRepository.findById(obligationId).orElse(null);
+		if (obligation == null) {
+			return;
+		}
+		String status = obligation.getStatus();
+		if ("MAPPED".equalsIgnoreCase(status) || "IMPLEMENTED".equalsIgnoreCase(status)) {
+			return;
+		}
+		if (!"UNMAPPED".equalsIgnoreCase(status) && !"IN_PROGRESS".equalsIgnoreCase(status)) {
+			return;
+		}
+		long total = controlMappingRepository.countByObligation_Id(obligationId)
+				+ systemMappingRepository.countByObligation_Id(obligationId);
+		if (total > 0) {
+			obligation.setStatus("MAPPED");
+			obligationRepository.save(obligation);
+		}
 	}
 
 	private static ObligationControlMapping newControlRow(Obligation obligation, UUID controlId) {

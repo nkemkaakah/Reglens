@@ -12,4 +12,6 @@ public interface ObligationSystemMappingRepository extends JpaRepository<Obligat
 	List<ObligationSystemMapping> findByObligation_Id(UUID obligationId);
 
 	Optional<ObligationSystemMapping> findByObligation_IdAndSystemId(UUID obligationId, UUID systemId);
+
+	long countByObligation_Id(UUID obligationId);
 }

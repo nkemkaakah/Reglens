@@ -2,6 +2,7 @@ package com.reglens.obligation_service.controller;
 
 import com.reglens.obligation_service.dto.ObligationRequest;
 import com.reglens.obligation_service.dto.ObligationResponse;
+import com.reglens.obligation_service.dto.ObligationStatusPatchRequest;
 import com.reglens.obligation_service.service.ObligationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -11,6 +12,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -113,6 +115,31 @@ public class ObligationController {
 				created.documentId()
 		);
 		return created;
+	}
+
+	/**
+	 * Mapping-service calls this when the user starts AI-assisted mapping triage (Suggest).
+	 */
+	@PostMapping("/obligations/{id}/mapping-suggest-started")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	@Operation(summary = "Record that suggest-mappings was started (UNMAPPED → IN_PROGRESS)")
+	public void mappingSuggestStarted(@PathVariable("id") UUID id) {
+		obligationService.onMappingSuggestStarted(id);
+		log.debug("POST /obligations/{}/mapping-suggest-started", id);
+	}
+
+	/**
+	 * Manual workflow transition — currently only {@code IMPLEMENTED} from {@code MAPPED}.
+	 */
+	@PatchMapping("/obligations/{id}/status")
+	@Operation(summary = "Update obligation workflow status")
+	public ObligationResponse patchStatus(
+			@PathVariable("id") UUID id,
+			@Valid @RequestBody ObligationStatusPatchRequest body
+	) {
+		ObligationResponse updated = obligationService.patchStatus(id, body.status(), body.confirmedBy());
+		log.info("PATCH /obligations/{}/status -> {}", id, updated.status());
+		return updated;
 	}
 
 	/**
