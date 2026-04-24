@@ -1,13 +1,18 @@
 import { useQuery } from '@tanstack/react-query'
+import { useEffect, useRef } from 'react'
 import { ObligationImpactSection } from './ObligationImpactSection'
 import { ObligationMappingsSection } from './ObligationMappingsSection'
 import { StatusBadge } from './StatusBadge'
 import { apiFetchJson, OBLIGATION_API_BASE_URL } from '../lib/apiClient'
 import type { ObligationSummary } from '../types/api'
 
+export type ObligationDrawerPanel = 'mappings' | 'impact'
+
 type ObligationDrawerProps = {
   obligationId: string
   onClose: () => void
+  /** When set, scrolls the drawer content to the mappings or impact section after detail loads. */
+  initialPanel?: ObligationDrawerPanel
 }
 
 function toneForStatus(status: ObligationSummary['status']): Parameters<typeof StatusBadge>[0]['tone'] {
@@ -47,7 +52,11 @@ function formatDate(value: string | null | undefined): string {
   return dt.toLocaleDateString()
 }
 
-export function ObligationDrawer({ obligationId, onClose }: ObligationDrawerProps) {
+export function ObligationDrawer({ obligationId, onClose, initialPanel }: ObligationDrawerProps) {
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const mappingsSectionRef = useRef<HTMLDivElement>(null)
+  const impactSectionRef = useRef<HTMLDivElement>(null)
+
   const obligationQuery = useQuery({
     queryKey: ['obligations', obligationId],
     queryFn: async () => {
@@ -63,6 +72,28 @@ export function ObligationDrawer({ obligationId, onClose }: ObligationDrawerProp
   })
 
   const obligation = obligationQuery.data
+
+  useEffect(() => {
+    scrollContainerRef.current?.scrollTo({ top: 0 })
+  }, [obligationId])
+
+  const lastScrollKeyRef = useRef<string | null>(null)
+  useEffect(() => {
+    lastScrollKeyRef.current = null
+  }, [obligationId])
+
+  useEffect(() => {
+    if (!obligation || !initialPanel) return
+    const key = `${obligation.id}:${initialPanel}`
+    if (lastScrollKeyRef.current === key) return
+    lastScrollKeyRef.current = key
+    const timer = window.setTimeout(() => {
+      const target =
+        initialPanel === 'mappings' ? mappingsSectionRef.current : impactSectionRef.current
+      target?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 150)
+    return () => window.clearTimeout(timer)
+  }, [obligation?.id, initialPanel, obligation])
 
   return (
     <div className="fixed inset-0 z-50">
@@ -113,7 +144,10 @@ export function ObligationDrawer({ obligationId, onClose }: ObligationDrawerProp
           </div>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-8 py-8">
+        <div
+          ref={scrollContainerRef}
+          className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-8 py-8"
+        >
           {obligationQuery.isLoading ? (
             <div className="space-y-4">
               <div className="h-4 w-3/4 rounded-md bg-app-subtle" />
@@ -213,9 +247,21 @@ export function ObligationDrawer({ obligationId, onClose }: ObligationDrawerProp
                 </div>
               </div>
 
-              <ObligationMappingsSection obligationId={obligationId} />
+              <div
+                id="obligation-panel-mappings"
+                ref={mappingsSectionRef}
+                className="scroll-mt-6 rounded-xl border border-app-border bg-app-surface/80 p-1"
+              >
+                <ObligationMappingsSection obligationId={obligationId} />
+              </div>
 
-              <ObligationImpactSection obligationId={obligationId} obligationRef={obligation.ref} />
+              <div
+                id="obligation-panel-impact"
+                ref={impactSectionRef}
+                className="scroll-mt-6 rounded-xl border border-app-border bg-app-surface/80 p-1"
+              >
+                <ObligationImpactSection obligationId={obligationId} obligationRef={obligation.ref} />
+              </div>
 
               <div className="rounded-xl border border-app-border bg-app-surface p-6 shadow-sm">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-app-muted">

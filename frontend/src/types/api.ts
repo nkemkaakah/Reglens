@@ -173,6 +173,12 @@ export interface ImpactTaskRow {
   tasks: ImpactTaskItem[]
 }
 
+export interface ImpactIndexSummary {
+  obligationId: string
+  summary: string
+  createdAt: string
+}
+
 export interface ImpactResponse {
   obligationId: string
   eventId: string

@@ -39,6 +39,7 @@ public class SecurityConfig {
 								"/error/**"
 						).permitAll()
 						.requestMatchers(HttpMethod.GET, "/").permitAll()
+						.requestMatchers(HttpMethod.GET, "/impacts").permitAll()
 						.requestMatchers(HttpMethod.GET, "/obligations/*/impact").permitAll()
 						.requestMatchers(HttpMethod.GET, "/obligations/**", "/documents/**").permitAll()
 						.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()

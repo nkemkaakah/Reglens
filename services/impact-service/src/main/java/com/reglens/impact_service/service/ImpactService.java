@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
@@ -21,6 +23,7 @@ import com.reglens.impact_service.client.CatalogClient;
 import com.reglens.impact_service.client.ObligationClient;
 import com.reglens.impact_service.domain.ImpactAnalysis;
 import com.reglens.impact_service.dto.ImpactGeneratedEvent;
+import com.reglens.impact_service.dto.ImpactIndexRow;
 import com.reglens.impact_service.dto.ImpactResponse;
 import com.reglens.impact_service.dto.ImpactTaskItem;
 import com.reglens.impact_service.dto.ImpactTaskRow;
@@ -58,6 +61,12 @@ public class ImpactService {
 		this.objectMapper = objectMapper;
 		this.kafkaTemplate = kafkaTemplate;
 		this.impactGeneratedTopic = impactGeneratedTopic;
+	}
+
+	@Transactional(readOnly = true)
+	public Page<ImpactIndexRow> listImpactIndex(Pageable pageable) {
+		return impactAnalysisRepository.findAllByOrderByCreatedAtDesc(pageable)
+				.map(row -> new ImpactIndexRow(row.getObligationId(), row.getSummary(), row.getCreatedAt()));
 	}
 
 	@Transactional(readOnly = true)

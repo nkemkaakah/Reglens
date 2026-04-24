@@ -1,7 +1,9 @@
 package com.reglens.obligation_service.repository;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.util.StringUtils;
@@ -19,15 +21,23 @@ import jakarta.persistence.criteria.Predicate;
  */
 public final class ObligationSpecifications {
 
+	private static final Set<String> ALLOWED_STATUS = Set.of(
+			"UNMAPPED", "IN_PROGRESS", "MAPPED", "IMPLEMENTED"
+	);
+
 	private ObligationSpecifications() {
 	}
 
 	/**
 	 * Composes optional predicates for the obligation explorer. Joins {@code document} so regulator
 	 * filtering works without denormalising columns onto {@link Obligation}.
+	 *
+	 * @param statusIn optional comma-separated statuses (e.g. {@code UNMAPPED,IN_PROGRESS}); when
+	 *                 non-empty, takes precedence over {@code status} for status filtering.
 	 */
 	public static Specification<Obligation> filtered(
 			String status,
+			String statusIn,
 			String regulator,
 			String riskRating,
 			String topic,
@@ -49,7 +59,10 @@ public final class ObligationSpecifications {
 			Join<Obligation, Document> doc = root.join("document", JoinType.INNER);
 			List<Predicate> predicates = new ArrayList<>();
 
-			if (StringUtils.hasText(status)) {
+			List<String> statusList = parseStatusInList(statusIn);
+			if (!statusList.isEmpty()) {
+				predicates.add(root.get("status").in(statusList));
+			} else if (StringUtils.hasText(status)) {
 				predicates.add(cb.equal(cb.upper(root.get("status")), status.trim().toUpperCase()));
 			}
 			if (StringUtils.hasText(regulator)) {
@@ -90,5 +103,22 @@ public final class ObligationSpecifications {
 			}
 			return cb.and(predicates.toArray(Predicate[]::new));
 		};
+	}
+
+	private static List<String> parseStatusInList(String statusIn) {
+		if (!StringUtils.hasText(statusIn)) {
+			return List.of();
+		}
+		var out = new LinkedHashSet<String>();
+		for (String raw : statusIn.split(",")) {
+			if (!StringUtils.hasText(raw)) {
+				continue;
+			}
+			String u = raw.trim().toUpperCase();
+			if (ALLOWED_STATUS.contains(u)) {
+				out.add(u);
+			}
+		}
+		return List.copyOf(out);
 	}
 }

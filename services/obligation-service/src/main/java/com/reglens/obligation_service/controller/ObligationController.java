@@ -46,6 +46,7 @@ public class ObligationController {
 	@Operation(summary = "List obligations with optional filters")
 	public Page<ObligationResponse> list(
 			@RequestParam(required = false) String status,
+			@RequestParam(required = false) String statusIn,
 			@RequestParam(required = false) String regulator,
 			@RequestParam(required = false) String riskRating,
 			@RequestParam(required = false) String topic,
@@ -54,17 +55,18 @@ public class ObligationController {
 			@PageableDefault(size = 20, sort = "createdAt") Pageable pageable
 	) {
 		log.debug(
-				"GET /obligations page={} size={} status={} regulator={} risk={} topic={} aiPrinciple={} q={}",
+				"GET /obligations page={} size={} status={} statusIn={} regulator={} risk={} topic={} aiPrinciple={} q={}",
 				pageable.getPageNumber(),
 				pageable.getPageSize(),
 				status,
+				statusIn,
 				regulator,
 				riskRating,
 				topic,
 				aiPrinciple,
 				q
 		);
-		return obligationService.list(status, regulator, riskRating, topic, aiPrinciple, q, pageable);
+		return obligationService.list(status, statusIn, regulator, riskRating, topic, aiPrinciple, q, pageable);
 	}
 
 	/**

@@ -1,24 +1,17 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { EmptyState } from '../components/EmptyState'
-import { ObligationDrawer, type ObligationDrawerPanel } from '../components/ObligationDrawer'
 import { StatusBadge } from '../components/StatusBadge'
 import { apiFetchJson, OBLIGATION_API_BASE_URL } from '../lib/apiClient'
 import type { ObligationStatus, Page, RiskRating, ObligationSummary } from '../types/api'
 
-const OBLIGATION_ID_PARAM = 'obligation'
-const PANEL_PARAM = 'panel'
-
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const MAPPING_ATTENTION_STATUSES = 'UNMAPPED,IN_PROGRESS' as const
 
 type Filters = {
-  status: ObligationStatus | ''
   riskRating: RiskRating | ''
   regulator: string
   topic: string
-  aiPrinciple: string
   q: string
 }
 
@@ -52,144 +45,77 @@ function toneForRisk(risk: ObligationSummary['riskRating']): Parameters<typeof S
   }
 }
 
-function formatDate(value: string | null | undefined): string {
-  if (!value) return '—'
-  const dt = new Date(value)
-  if (Number.isNaN(dt.getTime())) return value
-  return dt.toLocaleDateString()
-}
-
-function parsePanel(value: string): ObligationDrawerPanel | undefined {
-  const v = value.trim().toLowerCase()
-  if (v === 'mappings' || v === 'impact') return v
-  return undefined
-}
-
-export function ObligationExplorerPage() {
-  const [searchParams, setSearchParams] = useSearchParams()
-  const obligationFromUrl = searchParams.get(OBLIGATION_ID_PARAM)?.trim() ?? ''
-  const panelFromUrl = searchParams.get(PANEL_PARAM)?.trim() ?? ''
-  const initialDrawerPanel = parsePanel(panelFromUrl)
-
+/**
+ * Cross-obligation mapping triage: obligations that typically still need catalogue mapping work.
+ * "Suggest & review" deep-links to the explorer drawer with the mappings panel in view.
+ */
+export function MappingsWorkQueuePage() {
+  const navigate = useNavigate()
   const [filters, setFilters] = useState<Filters>({
-    status: '',
     riskRating: '',
     regulator: '',
     topic: '',
-    aiPrinciple: '',
     q: '',
   })
   const [page, setPage] = useState(0)
   const [size] = useState(20)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!obligationFromUrl || !UUID_RE.test(obligationFromUrl)) {
-      setSelectedId(null)
-      return
-    }
-    setSelectedId(obligationFromUrl)
-  }, [obligationFromUrl])
 
   const queryParams = useMemo(() => {
     const params = new URLSearchParams()
     params.set('page', String(page))
     params.set('size', String(size))
     params.set('sort', 'createdAt,desc')
-    if (filters.status) params.set('status', filters.status)
+    params.set('statusIn', MAPPING_ATTENTION_STATUSES)
     if (filters.riskRating) params.set('riskRating', filters.riskRating)
     if (filters.regulator.trim()) params.set('regulator', filters.regulator.trim())
     if (filters.topic.trim()) params.set('topic', filters.topic.trim())
-    if (filters.aiPrinciple.trim()) params.set('aiPrinciple', filters.aiPrinciple.trim())
     if (filters.q.trim()) params.set('q', filters.q.trim())
     return params.toString()
   }, [filters, page, size])
 
   const obligationsQuery = useQuery({
-    queryKey: ['obligations', queryParams],
-    queryFn: async () => {
-      const path = `/obligations?${queryParams}`
-      return apiFetchJson<Page<ObligationSummary>>(OBLIGATION_API_BASE_URL, path)
-    },
+    queryKey: ['obligations', 'mapping-queue', queryParams],
+    queryFn: () =>
+      apiFetchJson<Page<ObligationSummary>>(OBLIGATION_API_BASE_URL, `/obligations?${queryParams}`),
   })
 
   const content = obligationsQuery.data?.content ?? []
 
-  const syncExplorerUrl = (obligationId: string | null) => {
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev)
-        if (!obligationId) {
-          next.delete(OBLIGATION_ID_PARAM)
-          next.delete(PANEL_PARAM)
-        } else {
-          next.set(OBLIGATION_ID_PARAM, obligationId)
-          next.delete(PANEL_PARAM)
-        }
-        return next
-      },
-      { replace: true },
-    )
-  }
-
-  const openObligationRow = (id: string) => {
-    setSelectedId(id)
-    syncExplorerUrl(id)
-  }
-
-  const closeDrawer = () => {
-    setSelectedId(null)
-    syncExplorerUrl(null)
+  const openInExplorer = (obligationId: string) => {
+    const q = new URLSearchParams()
+    q.set('obligation', obligationId)
+    q.set('panel', 'mappings')
+    navigate(`/obligations?${q.toString()}`)
   }
 
   return (
     <section className="space-y-6">
       <div className="rounded-lg border border-app-border bg-app-surface p-6">
         <div className="flex flex-wrap items-center gap-2">
-          <StatusBadge label="Feature 2" tone="info" />
-          <StatusBadge label="Filters" tone="warning" />
-          <StatusBadge label="Detail drawer" tone="success" />
+          <StatusBadge label="Feature 4" tone="info" />
+          <StatusBadge label="Cross-obligation" tone="warning" />
         </div>
-        <h2 className="mt-4 text-2xl font-semibold tracking-tight">
-          Obligation Explorer
-        </h2>
+        <h2 className="mt-4 text-2xl font-semibold tracking-tight">AI-assisted mappings — work queue</h2>
         <p className="mt-2 max-w-3xl text-sm text-app-muted">
-          Browse, filter and triage obligations extracted from regulatory documents. Share links using{' '}
-          <span className="font-mono text-xs text-app-text">?obligation=&lt;uuid&gt;</span> and optional{' '}
-          <span className="font-mono text-xs text-app-text">&amp;panel=mappings|impact</span>.
+          Obligations in <strong className="text-app-text">Unmapped</strong> or{' '}
+          <strong className="text-app-text">In progress</strong> status. Open an item in the obligation
+          explorer with the mappings section in view to run <em>Suggest mappings</em> and review results.
         </p>
       </div>
 
       <div className="rounded-lg border border-app-border bg-app-surface p-6">
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-6">
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-5">
           <label className="block lg:col-span-2">
             <span className="text-xs font-medium text-app-muted">Search</span>
             <input
               className="mt-1 block w-full rounded-md border border-app-border bg-app-subtle px-3 py-2 text-sm text-app-text"
-              placeholder="Full-text search (q)"
+              placeholder="Title or summary (q)"
               value={filters.q}
               onChange={(e) => {
                 setPage(0)
                 setFilters((s) => ({ ...s, q: e.target.value }))
               }}
             />
-          </label>
-          <label className="block">
-            <span className="text-xs font-medium text-app-muted">Status</span>
-            <select
-              className="mt-1 block w-full rounded-md border border-app-border bg-app-subtle px-3 py-2 text-sm text-app-text"
-              value={filters.status}
-              onChange={(e) => {
-                setPage(0)
-                setFilters((s) => ({ ...s, status: e.target.value as Filters['status'] }))
-              }}
-            >
-              <option value="">All</option>
-              <option value="UNMAPPED">Unmapped</option>
-              <option value="IN_PROGRESS">In progress</option>
-              <option value="MAPPED">Mapped</option>
-              <option value="IMPLEMENTED">Implemented</option>
-            </select>
           </label>
           <label className="block">
             <span className="text-xs font-medium text-app-muted">Risk</span>
@@ -232,18 +158,6 @@ export function ObligationExplorerPage() {
               }}
             />
           </label>
-          <label className="block">
-            <span className="text-xs font-medium text-app-muted">AI principle</span>
-            <input
-              className="mt-1 block w-full rounded-md border border-app-border bg-app-subtle px-3 py-2 text-sm text-app-text"
-              placeholder="Transparency"
-              value={filters.aiPrinciple}
-              onChange={(e) => {
-                setPage(0)
-                setFilters((s) => ({ ...s, aiPrinciple: e.target.value }))
-              }}
-            />
-          </label>
         </div>
       </div>
 
@@ -252,7 +166,6 @@ export function ObligationExplorerPage() {
           <div className="space-y-3">
             <div className="h-4 w-2/3 rounded bg-app-subtle" />
             <div className="h-4 w-5/6 rounded bg-app-subtle" />
-            <div className="h-4 w-3/4 rounded bg-app-subtle" />
           </div>
         </div>
       ) : obligationsQuery.isError ? (
@@ -267,56 +180,44 @@ export function ObligationExplorerPage() {
                 <tr>
                   <th className="px-4 py-3">Ref</th>
                   <th className="px-4 py-3">Title</th>
-                  <th className="px-4 py-3">Regulator</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">Risk</th>
-                  <th className="px-4 py-3">Created</th>
+                  <th className="px-4 py-3 w-[1%] whitespace-nowrap">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-app-border">
                 {content.map((ob) => (
-                  <tr
-                    key={ob.id}
-                    className={`cursor-pointer bg-app-surface hover:bg-app-subtle ${
-                      selectedId === ob.id ? 'bg-brand-muted/40' : ''
-                    }`}
-                    onClick={() => openObligationRow(ob.id)}
-                  >
+                  <tr key={ob.id} className="bg-app-surface hover:bg-app-subtle">
                     <td className="px-4 py-3 align-top">
                       <p className="font-mono text-xs text-app-muted">{ob.ref}</p>
                     </td>
                     <td className="px-4 py-3 align-top">
-                      <p className="text-sm font-semibold">{ob.title}</p>
-                      <p className="mt-1 max-w-2xl text-sm text-app-muted">
+                      <p className="text-sm font-semibold [overflow-wrap:anywhere]">{ob.title}</p>
+                      <p className="mt-1 max-w-xl text-sm text-app-muted [overflow-wrap:anywhere]">
                         {ob.summary}
                       </p>
                     </td>
                     <td className="px-4 py-3 align-top">
-                      <p className="text-sm">{ob.regulator}</p>
-                      <p className="mt-1 text-xs font-mono text-app-muted">
-                        {ob.documentRef}
-                      </p>
-                    </td>
-                    <td className="px-4 py-3 align-top">
                       <StatusBadge
-                        label={ob.status.replace('_', ' ')}
+                        label={(ob.status as ObligationStatus).replace('_', ' ')}
                         tone={toneForStatus(ob.status)}
                       />
                     </td>
                     <td className="px-4 py-3 align-top">
                       {ob.riskRating ? (
-                        <StatusBadge
-                          label={ob.riskRating}
-                          tone={toneForRisk(ob.riskRating)}
-                        />
+                        <StatusBadge label={ob.riskRating} tone={toneForRisk(ob.riskRating)} />
                       ) : (
                         <span className="text-sm text-app-muted">—</span>
                       )}
                     </td>
                     <td className="px-4 py-3 align-top">
-                      <p className="text-sm text-app-muted">
-                        {formatDate(ob.createdAt)}
-                      </p>
+                      <button
+                        type="button"
+                        className="rounded-md bg-brand px-3 py-2 text-xs font-medium text-white transition hover:bg-brand-hover"
+                        onClick={() => openInExplorer(ob.id)}
+                      >
+                        Suggest &amp; review
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -326,9 +227,8 @@ export function ObligationExplorerPage() {
 
           <div className="flex items-center justify-between gap-3 border-t border-app-border px-4 py-3">
             <p className="text-sm text-app-muted">
-              Page {(obligationsQuery.data?.number ?? 0) + 1} of{' '}
-              {obligationsQuery.data?.totalPages ?? 1} ·{' '}
-              {obligationsQuery.data?.totalElements ?? content.length} total
+              Page {(obligationsQuery.data?.number ?? 0) + 1} of {obligationsQuery.data?.totalPages ?? 1} ·{' '}
+              {obligationsQuery.data?.totalElements ?? content.length} in queue
             </p>
             <div className="flex items-center gap-2">
               <button
@@ -352,18 +252,10 @@ export function ObligationExplorerPage() {
         </div>
       ) : (
         <EmptyState
-          title="No obligations found"
-          description="Try ingesting a document first, or relax your filters."
+          title="No obligations in this queue"
+          description="Nothing is currently unmapped or in progress with your filters. Try relaxing filters or ingest new documents."
         />
       )}
-
-      {selectedId ? (
-        <ObligationDrawer
-          obligationId={selectedId}
-          onClose={closeDrawer}
-          initialPanel={initialDrawerPanel}
-        />
-      ) : null}
     </section>
   )
 }

@@ -36,7 +36,6 @@ def patch_extraction_two_rows(monkeypatch: pytest.MonkeyPatch) -> None:
                     ai_principles=["Accountability"],
                     risk_rating="HIGH",
                     effective_date=None,
-                    status="UNMAPPED",
                 ),
             ),
             (
@@ -51,7 +50,6 @@ def patch_extraction_two_rows(monkeypatch: pytest.MonkeyPatch) -> None:
                     ai_principles=["Transparency"],
                     risk_rating="MEDIUM",
                     effective_date=None,
-                    status="UNMAPPED",
                 ),
             ),
         ]

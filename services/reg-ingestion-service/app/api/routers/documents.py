@@ -36,7 +36,6 @@ _MAX_UPLOAD_BYTES = 15 * 1024 * 1024
 _CHUNK_MAX_CHARS = 16_000
 
 _ALLOWED_RISK = frozenset({"LOW", "MEDIUM", "HIGH", "CRITICAL"})
-_ALLOWED_STATUS = frozenset({"UNMAPPED", "IN_PROGRESS", "MAPPED", "IMPLEMENTED"})
 
 
 class _LlmObligationItem(BaseModel):
@@ -53,7 +52,6 @@ class _LlmObligationItem(BaseModel):
     ai_principles: list[str] | None = Field(default=None, alias="aiPrinciples")
     risk_rating: str | None = Field(default=None, alias="riskRating")
     effective_date: str | None = Field(default=None, alias="effectiveDate")
-    status: str | None = None
 
 
 class _LlmObligationEnvelope(BaseModel):
@@ -79,7 +77,6 @@ _OBLIGATION_JSON_SCHEMA: dict[str, object] = {
                     "aiPrinciples": {"type": "array", "items": {"type": "string"}},
                     "riskRating": {"anyOf": [{"type": "string"}, {"type": "null"}]},
                     "effectiveDate": {"anyOf": [{"type": "string"}, {"type": "null"}]},
-                    "status": {"type": "string"},
                 },
                 "required": [
                     "ref",
@@ -91,7 +88,6 @@ _OBLIGATION_JSON_SCHEMA: dict[str, object] = {
                     "aiPrinciples",
                     "riskRating",
                     "effectiveDate",
-                    "status",
                 ],
                 "additionalProperties": False,
             },
@@ -225,13 +221,6 @@ def _normalize_risk(value: str | None) -> str | None:
     return upper if upper in _ALLOWED_RISK else None
 
 
-def _normalize_status(value: str | None) -> str:
-    if not value:
-        return "UNMAPPED"
-    upper = value.strip().upper()
-    return upper if upper in _ALLOWED_STATUS else "UNMAPPED"
-
-
 def _stable_row_ref(*, document_ref: str, chunk_index: int, row_index: int) -> str:
     base = slug_document_ref_prefix(document_ref)
     token = uuid4().hex[:8].upper()
@@ -257,7 +246,7 @@ def _llm_item_to_obligation_create(
         ai_principles=item.ai_principles,
         risk_rating=_normalize_risk(item.risk_rating),
         effective_date=_parse_optional_date(item.effective_date),
-        status=_normalize_status(item.status),
+        status="UNMAPPED",
     )
 
 

@@ -43,6 +43,7 @@ public class ObligationService {
 	@Transactional(readOnly = true)
 	public Page<ObligationResponse> list(
 			String status,
+			String statusIn,
 			String regulator,
 			String riskRating,
 			String topic,
@@ -50,7 +51,7 @@ public class ObligationService {
 			String q,
 			Pageable pageable
 	) {
-		var spec = ObligationSpecifications.filtered(status, regulator, riskRating, topic, aiPrinciple, q);
+		var spec = ObligationSpecifications.filtered(status, statusIn, regulator, riskRating, topic, aiPrinciple, q);
 		return obligationRepository.findAll(spec, pageable).map(this::toResponse);
 	}
 

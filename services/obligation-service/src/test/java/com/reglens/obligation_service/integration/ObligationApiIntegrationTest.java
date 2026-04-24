@@ -14,6 +14,8 @@ import java.util.UUID;
 
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -52,6 +54,21 @@ class ObligationApiIntegrationTest {
 		mockMvc.perform(get("/obligations").param("status", "unmapped").param("size", "20"))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.content[?(@.ref == 'FCA-AI-2024-OB-002')]").isNotEmpty());
+	}
+
+	@Test
+	@DisplayName("GET /obligations filters by statusIn (comma-separated, precedence over status)")
+	void listObligations_filtersByStatusIn() throws Exception {
+		mockMvc.perform(
+						get("/obligations")
+								.param("status", "MAPPED")
+								.param("statusIn", "UNMAPPED,IN_PROGRESS")
+								.param("size", "20"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.content.length()").value(2))
+				.andExpect(jsonPath("$.content[*].ref", hasItem("FCA-AI-2024-OB-002")))
+				.andExpect(jsonPath("$.content[*].ref", hasItem("FCA-AI-2024-OB-003")))
+				.andExpect(jsonPath("$.content[*].ref", not(hasItem("FCA-AI-2024-OB-001"))));
 	}
 
 	@Test

@@ -2,7 +2,9 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from './components/AppShell'
 import { PlaceholderPage } from './components/PlaceholderPage'
 import { ControlsPage } from './pages/ControlsPage'
+import { ImpactDashboardPage } from './pages/ImpactDashboardPage'
 import { IngestionPage } from './pages/IngestionPage'
+import { MappingsWorkQueuePage } from './pages/MappingsWorkQueuePage'
 import { ObligationExplorerPage } from './pages/ObligationExplorerPage'
 import { SystemsPage } from './pages/SystemsPage'
 
@@ -25,24 +27,8 @@ function App() {
         />
         <Route path="/controls" element={<ControlsPage />} />
         <Route path="/systems" element={<SystemsPage />} />
-        <Route
-          path="/mappings"
-          element={
-            <PlaceholderPage
-              title="AI-Assisted Mappings"
-              description="Review and approve suggested obligation-to-control/system mappings."
-            />
-          }
-        />
-        <Route
-          path="/impact"
-          element={
-            <PlaceholderPage
-              title="Impact Analyses"
-              description="Generate implementation guidance and engineering backlog suggestions."
-            />
-          }
-        />
+        <Route path="/mappings" element={<MappingsWorkQueuePage />} />
+        <Route path="/impact" element={<ImpactDashboardPage />} />
         <Route
           path="/ai-registry"
           element={
