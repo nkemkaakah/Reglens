@@ -1,7 +1,20 @@
 package com.reglens.impact_service.service;
 
+import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.reglens.impact_service.client.CatalogClient;
 import com.reglens.impact_service.client.ObligationClient;
@@ -14,17 +27,6 @@ import com.reglens.impact_service.dto.upstream.ControlSummary;
 import com.reglens.impact_service.dto.upstream.ObligationDetail;
 import com.reglens.impact_service.dto.upstream.SystemSummary;
 import com.reglens.impact_service.repository.ImpactAnalysisRepository;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
-import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
-
-import java.time.OffsetDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
 
 @Service
 public class ImpactService {
@@ -120,20 +122,12 @@ public class ImpactService {
 		return list == null ? List.of() : list;
 	}
 
-	private String writeTasks(List<ImpactTaskRow> tasks) {
-		try {
-			return objectMapper.writeValueAsString(tasks == null ? List.of() : tasks);
-		} catch (JsonProcessingException ex) {
-			throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to serialize suggested tasks", ex);
-		}
+	private JsonNode writeTasks(List<ImpactTaskRow> tasks) {
+		return objectMapper.valueToTree(tasks == null ? List.of() : tasks);
 	}
 
-	private List<ImpactTaskRow> parseTasks(String value) {
-		try {
-			return objectMapper.readValue(value, new TypeReference<>() {
-			});
-		} catch (JsonProcessingException ex) {
-			throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Invalid suggested_tasks payload", ex);
-		}
+	private List<ImpactTaskRow> parseTasks(JsonNode value) {
+		return objectMapper.convertValue(value, new TypeReference<>() {
+		});
 	}
 }

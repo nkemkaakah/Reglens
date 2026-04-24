@@ -1,11 +1,14 @@
 package com.reglens.impact_service.domain;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -27,8 +30,9 @@ public class ImpactAnalysis {
 	@Column(nullable = false)
 	private String summary;
 
+	@JdbcTypeCode(SqlTypes.JSON)
 	@Column(name = "suggested_tasks", nullable = false, columnDefinition = "jsonb")
-	private String suggestedTasks;
+	private JsonNode suggestedTasks;
 
 	@Column(name = "generated_by", nullable = false)
 	private String generatedBy;
@@ -74,11 +78,11 @@ public class ImpactAnalysis {
 		this.summary = summary;
 	}
 
-	public String getSuggestedTasks() {
+	public JsonNode getSuggestedTasks() {
 		return suggestedTasks;
 	}
 
-	public void setSuggestedTasks(String suggestedTasks) {
+	public void setSuggestedTasks(JsonNode suggestedTasks) {
 		this.suggestedTasks = suggestedTasks;
 	}
 

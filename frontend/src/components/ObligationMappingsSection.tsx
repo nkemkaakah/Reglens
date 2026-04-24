@@ -97,6 +97,7 @@ export function ObligationMappingsSection({ obligationId }: ObligationMappingsSe
       ),
     onSuccess: async (_data, variables) => {
       await queryClient.invalidateQueries({ queryKey: ['obligations', obligationId, 'mappings'] })
+      await queryClient.invalidateQueries({ queryKey: ['obligations', obligationId, 'impact'] })
       setSuggestions((prev) =>
         prev.filter((s) => {
           if (s.kind === 'control') {

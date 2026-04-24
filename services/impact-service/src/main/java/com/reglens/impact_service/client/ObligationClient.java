@@ -16,7 +16,7 @@ public class ObligationClient {
 
 	public ObligationClient(
 			RestClient.Builder builder,
-			@Value("${app.obligation-service.base-url}") String baseUrl
+			@Value("${app.obligation.service.base-url}") String baseUrl
 	) {
 		this.restClient = builder.baseUrl(baseUrl).build();
 	}

@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { ObligationImpactSection } from './ObligationImpactSection'
 import { ObligationMappingsSection } from './ObligationMappingsSection'
 import { StatusBadge } from './StatusBadge'
 import { apiFetchJson, OBLIGATION_API_BASE_URL } from '../lib/apiClient'
@@ -213,6 +214,8 @@ export function ObligationDrawer({ obligationId, onClose }: ObligationDrawerProp
               </div>
 
               <ObligationMappingsSection obligationId={obligationId} />
+
+              <ObligationImpactSection obligationId={obligationId} obligationRef={obligation.ref} />
 
               <div className="rounded-xl border border-app-border bg-app-surface p-6 shadow-sm">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-app-muted">

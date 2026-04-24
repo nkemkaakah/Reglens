@@ -19,7 +19,7 @@ public class CatalogClient {
 
 	public CatalogClient(
 			RestClient.Builder builder,
-			@Value("${app.catalog-service.base-url}") String baseUrl
+			@Value("${app.catalog.service.base-url}") String baseUrl
 	) {
 		this.restClient = builder.baseUrl(baseUrl).build();
 	}
