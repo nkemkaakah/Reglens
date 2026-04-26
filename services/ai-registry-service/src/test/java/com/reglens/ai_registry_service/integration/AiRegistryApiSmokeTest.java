@@ -29,9 +29,14 @@ class AiRegistryApiSmokeTest {
 
 	@Test
 	void getAiSystems_returnsSeededPage() throws Exception {
-		mockMvc.perform(get("/ai-systems").param("size", "50"))
+		mockMvc.perform(get("/ai-systems").param("size", "50").param("sort", "ref,asc"))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.totalElements").value(greaterThanOrEqualTo(3)));
+				.andExpect(jsonPath("$.totalElements").value(greaterThanOrEqualTo(3)))
+				.andExpect(jsonPath("$.content[0].ref").value("NXB-AI-001"))
+				.andExpect(jsonPath("$.content[0].useCase").isString())
+				.andExpect(jsonPath("$.content[0].ownerTeamName").value("Credit Risk Technology"))
+				.andExpect(jsonPath("$.content[0].linkedControlCount").value(4))
+				.andExpect(jsonPath("$.content[0].linkedSystemCount").value(2));
 	}
 
 	@Test
@@ -39,6 +44,7 @@ class AiRegistryApiSmokeTest {
 		mockMvc.perform(get("/ai-systems/f1000000-0000-0000-0000-000000000001"))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.ref").value("NXB-AI-001"))
+				.andExpect(jsonPath("$.ownerTeamName").value("Credit Risk Technology"))
 				.andExpect(jsonPath("$.linkedControls.length()").value(greaterThanOrEqualTo(1)));
 	}
 }

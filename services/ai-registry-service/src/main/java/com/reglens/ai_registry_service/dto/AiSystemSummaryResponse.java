@@ -11,10 +11,14 @@ public record AiSystemSummaryResponse(
 		UUID id,
 		String ref,
 		String name,
+		String useCase,
 		String aiType,
 		String businessDomain,
 		String riskRating,
 		String status,
+		String ownerTeamName,
+		int linkedControlCount,
+		int linkedSystemCount,
 		LocalDate deployedAt,
 		OffsetDateTime createdAt
 ) {

@@ -23,9 +23,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
-/**
- * Optional Mongo-backed governance documents for an AI system — large text blobs stay out of Postgres.
- */
+/** Mongo-backed governance documents for an AI system — large text blobs stay out of Postgres. */
 @RestController
 @RequestMapping("/ai-systems/{aiSystemId}/documents")
 @Tag(name = "AI System Documents")

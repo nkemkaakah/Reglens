@@ -15,6 +15,9 @@ export const MAPPING_API_BASE_URL =
 export const IMPACT_API_BASE_URL =
   import.meta.env.VITE_IMPACT_API_URL ?? 'http://localhost:8082'
 
+export const AI_REGISTRY_API_BASE_URL =
+  import.meta.env.VITE_AI_REGISTRY_API_URL ?? 'http://localhost:8083'
+
 type ApiError = Error & { status?: number; body?: string }
 
 async function parseError(response: Response): Promise<ApiError> {

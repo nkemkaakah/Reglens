@@ -8,7 +8,7 @@ import org.springframework.data.mongodb.repository.config.EnableMongoRepositorie
 /**
  * Entry point for the AI Registry microservice (PRD Feature 6).
  * <p>
- * Postgres (JPA + Flyway) holds the canonical registry and join rows to the catalogue; MongoDB stores optional large blobs.
+ * Postgres (JPA + Flyway) holds the canonical registry and join rows to the catalogue; MongoDB stores large governance documents.
  */
 @SpringBootApplication
 @EnableJpaRepositories(basePackages = "com.reglens.ai_registry_service.repository")

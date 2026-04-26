@@ -5,10 +5,7 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * Full governance view for one AI system — core fields plus assessments and catalogue join rows.
- * Obligations and impact are aggregated separately in the SPA (PRD Feature 6) via obligation/impact services.
- */
+/* Full governance view for one AI system — core fields plus assessments and catalogue join rows. */
 public record AiSystemDetailResponse(
 		UUID id,
 		String ref,
@@ -21,6 +18,7 @@ public record AiSystemDetailResponse(
 		String modelName,
 		List<String> dataSources,
 		UUID ownerTeamId,
+		String ownerTeamName,
 		String techLeadEmail,
 		String riskRating,
 		LocalDate deployedAt,

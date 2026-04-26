@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from './components/AppShell'
 import { PlaceholderPage } from './components/PlaceholderPage'
+import { AiRegistryPage } from './pages/AiRegistryPage'
 import { ControlsPage } from './pages/ControlsPage'
 import { ImpactDashboardPage } from './pages/ImpactDashboardPage'
 import { IngestionPage } from './pages/IngestionPage'
@@ -29,15 +30,7 @@ function App() {
         <Route path="/systems" element={<SystemsPage />} />
         <Route path="/mappings" element={<MappingsWorkQueuePage />} />
         <Route path="/impact" element={<ImpactDashboardPage />} />
-        <Route
-          path="/ai-registry"
-          element={
-            <PlaceholderPage
-              title="AI Registry"
-              description="Register in-scope AI systems, link them to controls and owners, and evidence how each system meets governance expectations."
-            />
-          }
-        />
+        <Route path="/ai-registry" element={<AiRegistryPage />} />
         <Route
           path="/workflow"
           element={

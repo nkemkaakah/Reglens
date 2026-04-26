@@ -193,3 +193,105 @@ export interface ImpactResponse {
   reviewedAt: string | null
 }
 
+/** ai-registry-service — list row (GET /ai-systems). */
+export interface AiSystemSummary {
+  id: string
+  ref: string
+  name: string
+  useCase: string
+  aiType: string
+  businessDomain: string | null
+  riskRating: string | null
+  status: string
+  ownerTeamName: string | null
+  linkedControlCount: number
+  linkedSystemCount: number
+  deployedAt: string | null
+  createdAt: string
+}
+
+export interface AiSystemControlLink {
+  controlId: string
+  notes: string | null
+}
+
+export interface AiSystemSystemLink {
+  systemId: string
+  relationship: string | null
+}
+
+export interface AiRiskAssessmentRow {
+  id: string
+  assessmentDate: string
+  assessedBy: string
+  overallRating: string
+  biasRisk: string
+  explainabilityRisk: string
+  dataQualityRisk: string
+  operationalRisk: string
+  notes: string
+  nextReviewDate: string | null
+  createdAt: string
+}
+
+/** ai-registry-service — detail (GET /ai-systems/{id}). */
+export interface AiSystemDetail {
+  id: string
+  ref: string
+  name: string
+  description: string | null
+  aiType: string
+  useCase: string
+  businessDomain: string | null
+  modelProvider: string | null
+  modelName: string | null
+  dataSources: string[] | null
+  ownerTeamId: string
+  ownerTeamName: string | null
+  techLeadEmail: string | null
+  riskRating: string | null
+  deployedAt: string | null
+  lastReviewed: string | null
+  status: string
+  createdAt: string
+  riskAssessments: AiRiskAssessmentRow[]
+  linkedControls: AiSystemControlLink[]
+  linkedSystems: AiSystemSystemLink[]
+}
+
+export interface AiSystemWriteBody {
+  ref: string
+  name: string
+  description: string | null
+  aiType: string
+  useCase: string
+  businessDomain: string | null
+  modelProvider: string | null
+  modelName: string | null
+  dataSources: string[] | null
+  ownerTeamId: string
+  techLeadEmail: string | null
+  riskRating: string | null
+  deployedAt: string | null
+  lastReviewed: string | null
+  status: string
+}
+
+export interface AiSystemDocumentSummary {
+  id: string
+  title: string
+  contentType: string
+  createdAt: string
+}
+
+export interface AiSystemDocumentDetail extends AiSystemDocumentSummary {
+  aiSystemId: string
+  body: string
+}
+
+export interface AiSystemDocumentWriteBody {
+  title: string
+  contentType: string
+  body: string
+}
+

@@ -1,6 +1,8 @@
 package com.reglens.ai_registry_service.service;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.data.domain.Page;
@@ -60,14 +62,18 @@ public class AiSystemService {
 			Pageable pageable
 	) {
 		Specification<AiSystem> spec = AiSystemSpecifications.filtered(businessDomain, riskRating, status, aiType, q);
-		return aiSystemRepository.findAll(spec, pageable).map(AiSystemService::toSummary);
+		var entityPage = aiSystemRepository.findAll(spec, pageable);
+		List<UUID> ids = entityPage.getContent().stream().map(AiSystem::getId).toList();
+		Map<UUID, ListEnrichment> enrichments = loadListEnrichments(ids);
+		return entityPage.map(s -> toSummary(s, enrichments.getOrDefault(s.getId(), ListEnrichment.EMPTY)));
 	}
 
 	@Transactional(readOnly = true)
 	public AiSystemDetailResponse getById(UUID id) {
 		AiSystem system = aiSystemRepository.findById(id)
 				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "AI system not found"));
-		return toDetail(system);
+		Map<UUID, ListEnrichment> enrichments = loadListEnrichments(List.of(system.getId()));
+		return toDetail(system, enrichments.getOrDefault(system.getId(), ListEnrichment.EMPTY));
 	}
 
 	@Transactional
@@ -75,7 +81,7 @@ public class AiSystemService {
 		AiSystem entity = new AiSystem();
 		applyWriteRequest(entity, request);
 		AiSystem saved = aiSystemRepository.save(entity);
-		return toDetail(saved);
+		return toDetailAfterWrite(saved);
 	}
 
 	@Transactional
@@ -84,7 +90,7 @@ public class AiSystemService {
 				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "AI system not found"));
 		applyWriteRequest(entity, request);
 		AiSystem saved = aiSystemRepository.save(entity);
-		return toDetail(saved);
+		return toDetailAfterWrite(saved);
 	}
 
 	private static void applyWriteRequest(AiSystem entity, AiSystemWriteRequest request) {
@@ -105,21 +111,46 @@ public class AiSystemService {
 		entity.setStatus(request.status());
 	}
 
-	private static AiSystemSummaryResponse toSummary(AiSystem s) {
+	private AiSystemDetailResponse toDetailAfterWrite(AiSystem s) {
+		Map<UUID, ListEnrichment> enrichments = loadListEnrichments(List.of(s.getId()));
+		return toDetail(s, enrichments.getOrDefault(s.getId(), ListEnrichment.EMPTY));
+	}
+
+	private static AiSystemSummaryResponse toSummary(AiSystem s, ListEnrichment e) {
 		return new AiSystemSummaryResponse(
 				s.getId(),
 				s.getRef(),
 				s.getName(),
+				s.getUseCase(),
 				s.getAiType(),
 				s.getBusinessDomain(),
 				s.getRiskRating(),
 				s.getStatus(),
+				e.ownerTeamName(),
+				e.linkedControlCount(),
+				e.linkedSystemCount(),
 				s.getDeployedAt(),
 				s.getCreatedAt()
 		);
 	}
 
-	private AiSystemDetailResponse toDetail(AiSystem s) {
+	private Map<UUID, ListEnrichment> loadListEnrichments(List<UUID> ids) {
+		if (ids.isEmpty()) {
+			return Map.of();
+		}
+		List<Object[]> rows = aiSystemRepository.findListEnrichment(ids);
+		Map<UUID, ListEnrichment> map = HashMap.newHashMap(rows.size());
+		for (Object[] row : rows) {
+			UUID id = (UUID) row[0];
+			String ownerTeamName = row[1] != null ? row[1].toString() : null;
+			int controlCount = ((Number) row[2]).intValue();
+			int systemCount = ((Number) row[3]).intValue();
+			map.put(id, new ListEnrichment(ownerTeamName, controlCount, systemCount));
+		}
+		return map;
+	}
+
+	private AiSystemDetailResponse toDetail(AiSystem s, ListEnrichment teamRow) {
 		List<AiRiskAssessmentResponse> assessments = riskAssessmentRepository
 				.findByAiSystem_IdOrderByAssessmentDateDesc(s.getId())
 				.stream()
@@ -146,6 +177,7 @@ public class AiSystemService {
 				s.getModelName(),
 				s.getDataSources(),
 				s.getOwnerTeamId(),
+				teamRow.ownerTeamName(),
 				s.getTechLeadEmail(),
 				s.getRiskRating(),
 				s.getDeployedAt(),
@@ -180,5 +212,9 @@ public class AiSystemService {
 
 	private static AiSystemSystemLinkResponse toSystemLink(AiSystemToSystem row) {
 		return new AiSystemSystemLinkResponse(row.getSystemId(), row.getRelationship());
+	}
+
+	private record ListEnrichment(String ownerTeamName, int linkedControlCount, int linkedSystemCount) {
+		static final ListEnrichment EMPTY = new ListEnrichment(null, 0, 0);
 	}
 }
