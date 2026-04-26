@@ -109,6 +109,28 @@ services:
       postgres:
         condition: service_healthy
 
+  ai-registry-service:
+    build:
+      context: ../services/ai-registry-service
+      dockerfile: Dockerfile
+    container_name: reglens-ai-registry-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/reglens?currentSchema=ai_registry
+      SPRING_DATASOURCE_USERNAME: reglens
+      SPRING_DATASOURCE_PASSWORD: reglens_dev
+      SPRING_DATA_MONGODB_URI: mongodb://mongodb:27017/reglens_ai_registry
+      APP_SECURITY_SERVICE_TOKEN: dev-service-token-change-me
+      APP_CORS_ALLOWED_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+    ports:
+      - "8083:8083"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      catalog-service:
+        condition: service_started
+      mongodb:
+        condition: service_healthy
+
   postgres:
     image: postgres:16
     container_name: reglens-postgres
@@ -158,10 +180,19 @@ services:
       retries: 12
       start_period: 45s
 
-  # Add this when Feature 7 (workflow/event timeline) begins.
-  # mongodb:
-  #   image: mongo:7
-  #   ...
+  mongodb:
+    image: mongo:7
+    container_name: reglens-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.adminCommand({ ping: 1 })'"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
 
   # Add this when Feature 8 (notification fan-out/cache) begins.
   # redis:
@@ -171,3 +202,4 @@ services:
 volumes:
   postgres_data:
   kafka_data:
+  mongodb_data:
