@@ -34,7 +34,7 @@ function App() {
           element={
             <PlaceholderPage
               title="AI Registry"
-              description="Catalog AI systems, linked controls, and governance posture."
+              description="Register in-scope AI systems, link them to controls and owners, and evidence how each system meets governance expectations."
             />
           }
         />
@@ -43,7 +43,7 @@ function App() {
           element={
             <PlaceholderPage
               title="Workflow Timeline"
-              description="Audit obligation lifecycle events and approval history."
+              description="Review who changed each obligation, when, and why—from intake through mapping, impact sign-off, and implementation."
             />
           }
         />

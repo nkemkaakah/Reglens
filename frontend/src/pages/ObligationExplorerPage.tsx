@@ -145,18 +145,10 @@ export function ObligationExplorerPage() {
   return (
     <section className="space-y-6">
       <div className="rounded-lg border border-app-border bg-app-surface p-6">
-        <div className="flex flex-wrap items-center gap-2">
-          <StatusBadge label="Feature 2" tone="info" />
-          <StatusBadge label="Filters" tone="warning" />
-          <StatusBadge label="Detail drawer" tone="success" />
-        </div>
-        <h2 className="mt-4 text-2xl font-semibold tracking-tight">
-          Obligation Explorer
-        </h2>
+        <h2 className="text-2xl font-semibold tracking-tight">Obligation Explorer</h2>
         <p className="mt-2 max-w-3xl text-sm text-app-muted">
-          Browse, filter and triage obligations extracted from regulatory documents. Share links using{' '}
-          <span className="font-mono text-xs text-app-text">?obligation=&lt;uuid&gt;</span> and optional{' '}
-          <span className="font-mono text-xs text-app-text">&amp;panel=mappings|impact</span>.
+          Browse and triage regulatory obligations extracted from FCA, PRA and BoE documents. Open any row to
+          review the full obligation record, AI mapping suggestions, and impact analysis in context.
         </p>
       </div>
 
@@ -166,7 +158,7 @@ export function ObligationExplorerPage() {
             <span className="text-xs font-medium text-app-muted">Search</span>
             <input
               className="mt-1 block w-full rounded-md border border-app-border bg-app-subtle px-3 py-2 text-sm text-app-text"
-              placeholder="Full-text search (q)"
+              placeholder="Search title or summary"
               value={filters.q}
               onChange={(e) => {
                 setPage(0)
@@ -257,7 +249,7 @@ export function ObligationExplorerPage() {
         </div>
       ) : obligationsQuery.isError ? (
         <div className="rounded-lg border border-status-risk/35 bg-status-risk-soft p-6 text-sm text-status-risk">
-          Could not load obligations from the API.
+          Could not load obligations. Check your connection and try again.
         </div>
       ) : content.length ? (
         <div className="rounded-lg border border-app-border bg-app-surface">
@@ -353,7 +345,7 @@ export function ObligationExplorerPage() {
       ) : (
         <EmptyState
           title="No obligations found"
-          description="Try ingesting a document first, or relax your filters."
+          description="Ingest a regulatory document first, or broaden your search and criteria."
         />
       )}
 

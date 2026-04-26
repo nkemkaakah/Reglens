@@ -122,18 +122,10 @@ export function IngestionPage() {
   return (
     <section className="space-y-6">
       <div className="rounded-lg border border-app-border bg-app-surface p-6">
-        <div className="flex flex-wrap items-center gap-2">
-          <StatusBadge label="Feature 1" tone="info" />
-          <StatusBadge label="Stub pipeline" tone="ai" />
-          <StatusBadge label="Persist to Postgres" tone="success" />
-        </div>
-        <h2 className="mt-4 text-2xl font-semibold tracking-tight">
-          Regulatory Ingestion
-        </h2>
+        <h2 className="text-2xl font-semibold tracking-tight">Regulatory Ingestion</h2>
         <p className="mt-2 max-w-3xl text-sm text-app-muted">
-          Upload a PDF/text file (or paste a URL). The ingestion service will register the
-          document, run a stub extraction, and persist obligations to Postgres via the
-          obligation API.
+          Add a new regulatory source by uploading a PDF or text file, or by pasting a URL. RegLens registers
+          the document and extracts obligations so your team can triage, map, and assess impact in one place.
         </p>
       </div>
 
@@ -236,9 +228,7 @@ export function IngestionPage() {
             <div className="rounded-lg border border-app-border bg-app-surface p-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-sm font-semibold tracking-tight">
-                    Persisted document
-                  </h3>
+                  <h3 className="text-sm font-semibold tracking-tight">Registered document</h3>
                   <p className="mt-1 text-sm text-app-muted">
                     {mutation.data.document.title}{' '}
                     <span className="text-app-muted">·</span>{' '}
@@ -270,12 +260,9 @@ export function IngestionPage() {
 
           {mutation.data?.obligations?.length ? (
             <div className="rounded-lg border border-app-border bg-app-surface p-6">
-              <h3 className="text-sm font-semibold tracking-tight">
-                Extracted obligations (preview)
-              </h3>
+              <h3 className="text-sm font-semibold tracking-tight">Extracted obligations</h3>
               <p className="mt-1 text-sm text-app-muted">
-                These are already persisted to Postgres and will appear in the Obligation
-                Explorer.
+                These obligations are saved and available in Obligation Explorer for triage and mapping.
               </p>
               <div className="mt-4 divide-y divide-app-border rounded-md border border-app-border">
                 {mutation.data.obligations.map((ob) => (
@@ -302,7 +289,7 @@ export function IngestionPage() {
           ) : (
             <EmptyState
               title="No ingestion run yet"
-              description="Submit a file or URL to persist a document and extracted obligations."
+              description="Submit a file or URL on the left to register a document and extract obligations for review."
             />
           )}
         </div>

@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { EmptyState } from '../components/EmptyState'
-import { StatusBadge } from '../components/StatusBadge'
 import { apiFetchJson, IMPACT_API_BASE_URL } from '../lib/apiClient'
 import type { ImpactIndexSummary, Page } from '../types/api'
 
@@ -18,10 +17,6 @@ function truncateSummary(text: string, max = 200): string {
   return `${t.slice(0, max)}…`
 }
 
-/**
- * Cross-obligation impact inventory: list rows from impact-service GET /impacts (id + summary only).
- * Drill-in opens the obligation explorer drawer on the impact section for full detail.
- */
 export function ImpactDashboardPage() {
   const navigate = useNavigate()
   const [page, setPage] = useState(0)
@@ -53,14 +48,10 @@ export function ImpactDashboardPage() {
   return (
     <section className="space-y-6">
       <div className="rounded-lg border border-app-border bg-app-surface p-6">
-        <div className="flex flex-wrap items-center gap-2">
-          <StatusBadge label="Feature 5" tone="info" />
-          <StatusBadge label="Cross-obligation" tone="warning" />
-        </div>
-        <h2 className="mt-4 text-2xl font-semibold tracking-tight">Impact analyses — dashboard</h2>
+        <h2 className="text-2xl font-semibold tracking-tight">Impact analyses</h2>
         <p className="mt-2 max-w-3xl text-sm text-app-muted">
-          Every obligation that already has a generated impact record. Open a row to see full obligation
-          context and the complete impact breakdown in the drawer.
+          Track the engineering and compliance impact of every mapped obligation in one place. Click any row
+          to see the full impact summary, compliance gap, and suggested tasks.
         </p>
       </div>
 
@@ -73,8 +64,7 @@ export function ImpactDashboardPage() {
         </div>
       ) : impactsQuery.isError ? (
         <div className="rounded-lg border border-status-risk/35 bg-status-risk-soft p-6 text-sm text-status-risk">
-          Could not load impact list. Ensure impact-service is running and has generated at least one
-          analysis.
+          Could not load impact analyses. Check your connection and try again.
         </div>
       ) : content.length ? (
         <div className="rounded-lg border border-app-border bg-app-surface">
@@ -82,10 +72,10 @@ export function ImpactDashboardPage() {
             <table className="w-full border-collapse">
               <thead className="bg-app-subtle text-left text-xs font-semibold uppercase tracking-[0.12em] text-app-muted">
                 <tr>
-                  <th className="px-4 py-3 w-[22%]">Obligation id</th>
+                  <th className="px-4 py-3 w-[22%]">Obligation</th>
                   <th className="px-4 py-3">Summary</th>
                   <th className="px-4 py-3 w-[1%] whitespace-nowrap">Generated</th>
-                  <th className="px-4 py-3 w-[1%] whitespace-nowrap">Open</th>
+                  <th className="px-4 py-3 w-[1%] whitespace-nowrap">View</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-app-border">
@@ -120,7 +110,7 @@ export function ImpactDashboardPage() {
           <div className="flex items-center justify-between gap-3 border-t border-app-border px-4 py-3">
             <p className="text-sm text-app-muted">
               Page {(impactsQuery.data?.number ?? 0) + 1} of {impactsQuery.data?.totalPages ?? 1} ·{' '}
-              {impactsQuery.data?.totalElements ?? content.length} with impact
+              {impactsQuery.data?.totalElements ?? content.length} analyses
             </p>
             <div className="flex items-center gap-2">
               <button
@@ -145,7 +135,7 @@ export function ImpactDashboardPage() {
       ) : (
         <EmptyState
           title="No impact analyses yet"
-          description="Impact rows appear after the pipeline generates them for mapped obligations. Use the obligation drawer or wait for async generation."
+          description="Analyses appear after obligations are mapped to controls and systems and impact generation has completed. Approve mappings on each obligation first, then return here."
         />
       )}
     </section>

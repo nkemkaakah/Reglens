@@ -45,10 +45,6 @@ function toneForRisk(risk: ObligationSummary['riskRating']): Parameters<typeof S
   }
 }
 
-/**
- * Cross-obligation mapping triage: obligations that typically still need catalogue mapping work.
- * "Suggest & review" deep-links to the explorer drawer with the mappings panel in view.
- */
 export function MappingsWorkQueuePage() {
   const navigate = useNavigate()
   const [filters, setFilters] = useState<Filters>({
@@ -91,15 +87,11 @@ export function MappingsWorkQueuePage() {
   return (
     <section className="space-y-6">
       <div className="rounded-lg border border-app-border bg-app-surface p-6">
-        <div className="flex flex-wrap items-center gap-2">
-          <StatusBadge label="Feature 4" tone="info" />
-          <StatusBadge label="Cross-obligation" tone="warning" />
-        </div>
-        <h2 className="mt-4 text-2xl font-semibold tracking-tight">AI-assisted mappings — work queue</h2>
+        <h2 className="text-2xl font-semibold tracking-tight">AI-assisted mappings</h2>
         <p className="mt-2 max-w-3xl text-sm text-app-muted">
-          Obligations in <strong className="text-app-text">Unmapped</strong> or{' '}
-          <strong className="text-app-text">In progress</strong> status. Open an item in the obligation
-          explorer with the mappings section in view to run <em>Suggest mappings</em> and review results.
+          Prioritise obligations that are still <strong className="text-app-text">Unmapped</strong> or{' '}
+          <strong className="text-app-text">In progress</strong>. Open a row to review AI-suggested controls
+          and systems, approve what applies, and send the obligation forward for impact analysis.
         </p>
       </div>
 
@@ -109,7 +101,7 @@ export function MappingsWorkQueuePage() {
             <span className="text-xs font-medium text-app-muted">Search</span>
             <input
               className="mt-1 block w-full rounded-md border border-app-border bg-app-subtle px-3 py-2 text-sm text-app-text"
-              placeholder="Title or summary (q)"
+              placeholder="Search title or summary"
               value={filters.q}
               onChange={(e) => {
                 setPage(0)
@@ -170,7 +162,7 @@ export function MappingsWorkQueuePage() {
         </div>
       ) : obligationsQuery.isError ? (
         <div className="rounded-lg border border-status-risk/35 bg-status-risk-soft p-6 text-sm text-status-risk">
-          Could not load obligations from the API.
+          Could not load this queue. Check your connection and try again.
         </div>
       ) : content.length ? (
         <div className="rounded-lg border border-app-border bg-app-surface">
@@ -253,7 +245,7 @@ export function MappingsWorkQueuePage() {
       ) : (
         <EmptyState
           title="No obligations in this queue"
-          description="Nothing is currently unmapped or in progress with your filters. Try relaxing filters or ingest new documents."
+          description="Nothing matches your criteria right now. Broaden your search or ingest new regulatory documents to add obligations."
         />
       )}
     </section>

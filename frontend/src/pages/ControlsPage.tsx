@@ -34,7 +34,6 @@ function formatDate(value: string | null | undefined): string {
   return dt.toLocaleDateString()
 }
 
-/** Feature 3 — control library list + detail drawer (create/edit modals deferred per PRD). */
 export function ControlsPage() {
   const [filters, setFilters] = useState<Filters>({
     category: '',
@@ -75,21 +74,17 @@ export function ControlsPage() {
   return (
     <section className="space-y-6">
       <div className="rounded-lg border border-app-border bg-app-surface p-6">
-        <div className="flex flex-wrap items-center gap-2">
-          <StatusBadge label="Feature 3" tone="info" />
-          <StatusBadge label="Controls" tone="success" />
-          <StatusBadge label="Read-only UI" tone="warning" />
-        </div>
-        <h2 className="mt-4 text-2xl font-semibold tracking-tight">Controls catalogue</h2>
+        <h2 className="text-2xl font-semibold tracking-tight">Controls catalogue</h2>
         <p className="mt-2 max-w-3xl text-sm text-app-muted">
-          Risk and compliance control library — mapping targets for obligations in later phases.
+          Browse the control library your organisation uses to evidence policy, risk, and oversight. Use it
+          when mapping obligations to the controls that must stay effective.
         </p>
       </div>
 
       <div className="rounded-lg border border-app-border bg-app-surface p-6">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-app-text">Filters</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-app-text">Refine this list</p>
         <p className="mt-1 text-xs text-app-muted">
-          Narrow the control library - combine search with category or lifecycle status.
+          Combine search with category or lifecycle status to find the right control quickly.
         </p>
         <div className="mt-4 grid grid-cols-1 gap-4 rounded-md border border-app-border/80 bg-app-subtle/50 p-4 lg:grid-cols-4">
           <label className="block lg:col-span-2">
@@ -145,7 +140,7 @@ export function ControlsPage() {
         </div>
       ) : controlsQuery.isError ? (
         <div className="rounded-lg border border-status-risk/35 bg-status-risk-soft p-6 text-sm text-status-risk">
-          Could not load controls from the catalogue API ({CATALOG_API_BASE_URL}).
+          Could not load controls. Check your connection and try again.
         </div>
       ) : content.length ? (
         <div className="rounded-lg border border-app-border bg-app-surface">
@@ -227,7 +222,7 @@ export function ControlsPage() {
       ) : (
         <EmptyState
           title="No controls found"
-          description="Adjust filters or ensure catalog-service is running with seed data."
+          description="Try different search terms or criteria, or ask your administrator to confirm the controls catalogue is available."
         />
       )}
 

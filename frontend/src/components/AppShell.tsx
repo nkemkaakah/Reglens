@@ -82,7 +82,7 @@ export function AppShell() {
           <header className="border-b border-app-border bg-app-surface px-6 py-3">
             <div className="flex items-center justify-between">
               <p className="text-sm text-app-muted">
-                Foundation shell ready for Phase 1 implementation.
+                Ingest sources, triage obligations, map controls and systems, and review impact in one workspace.
               </p>
               <div className="flex items-center gap-2">
                 <button

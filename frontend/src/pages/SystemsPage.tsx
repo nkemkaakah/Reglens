@@ -29,7 +29,6 @@ function toneForCriticality(
   }
 }
 
-/** Feature 3 — internal systems catalogue list + detail drawer. */
 export function SystemsPage() {
   const [filters, setFilters] = useState<Filters>({
     domain: '',
@@ -70,21 +69,17 @@ export function SystemsPage() {
   return (
     <section className="space-y-6">
       <div className="rounded-lg border border-app-border bg-app-surface p-6">
-        <div className="flex flex-wrap items-center gap-2">
-          <StatusBadge label="Feature 3" tone="info" />
-          <StatusBadge label="Systems" tone="success" />
-          <StatusBadge label="Read-only UI" tone="warning" />
-        </div>
-        <h2 className="mt-4 text-2xl font-semibold tracking-tight">Systems catalogue</h2>
+        <h2 className="text-2xl font-semibold tracking-tight">Systems catalogue</h2>
         <p className="mt-2 max-w-3xl text-sm text-app-muted">
-          Internal applications and services — metadata for architects and for obligation→system mapping later.
+          See which applications and services sit in scope for regulatory change, who owns them, and how
+          critical they are when mapping obligations to technology.
         </p>
       </div>
 
       <div className="rounded-lg border border-app-border bg-app-surface p-6">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-app-text">Filters</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-app-text">Refine this list</p>
         <p className="mt-1 text-xs text-app-muted">
-          Narrow the systems catalogue — search stacks with domain and criticality for triage.
+          Combine search with domain and criticality to focus on the systems that matter most.
         </p>
         <div className="mt-4 grid grid-cols-1 gap-4 rounded-md border border-app-border/80 bg-app-subtle/50 p-4 lg:grid-cols-4">
           <label className="block lg:col-span-2">
@@ -141,7 +136,7 @@ export function SystemsPage() {
         </div>
       ) : systemsQuery.isError ? (
         <div className="rounded-lg border border-status-risk/35 bg-status-risk-soft p-6 text-sm text-status-risk">
-          Could not load systems from the catalogue API ({CATALOG_API_BASE_URL}).
+          Could not load systems. Check your connection and try again.
         </div>
       ) : content.length ? (
         <div className="rounded-lg border border-app-border bg-app-surface">
@@ -228,7 +223,7 @@ export function SystemsPage() {
       ) : (
         <EmptyState
           title="No systems found"
-          description="Adjust filters or ensure catalog-service is running with seed data."
+          description="Try different search terms or criteria, or ask your administrator to confirm the systems catalogue is available."
         />
       )}
 

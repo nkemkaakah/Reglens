@@ -302,10 +302,11 @@ export function ObligationDrawer({ obligationId, onClose, initialPanel }: Obliga
 
               <div className="rounded-xl border border-app-border bg-app-surface p-6 shadow-sm">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-app-muted">
-                  Next (later phases)
+                  Workflow & approvals
                 </p>
                 <p className="mt-3 text-sm leading-relaxed text-app-muted">
-                  Workflow timeline (Feature 7) will appear here.
+                  A timeline of status changes, approvals, and audit events for this obligation will appear here
+                  when your organisation enables workflow tracking.
                 </p>
               </div>
             </div>

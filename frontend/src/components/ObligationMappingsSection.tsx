@@ -376,21 +376,20 @@ export function ObligationMappingsSection({ obligationId }: ObligationMappingsSe
 
       {suggestMutation.isError ? (
         <p className="mt-4 rounded-lg border border-status-risk/35 bg-status-risk-soft px-4 py-3 text-sm text-status-risk">
-          Suggest failed. Ensure mapping-service is running, catalogue has data, and{' '}
-          <code className="font-mono text-xs">ANTHROPIC_API_KEY</code> is set for the mapping-service
-          container.
+          Suggestions could not be generated. Check your connection and try again, or contact your
+          administrator if controls and systems catalogues are available but this keeps failing.
         </p>
       ) : null}
 
       {acceptMutation.isError ? (
         <p className="mt-4 rounded-lg border border-status-risk/35 bg-status-risk-soft px-4 py-3 text-sm text-status-risk">
-          Accept failed — check bearer token matches the stack and obligation IDs are valid.
+          Approvals could not be saved. Check your connection and sign-in, then try again.
         </p>
       ) : null}
 
       {rejectMutation.isError ? (
         <p className="mt-4 rounded-lg border border-status-risk/35 bg-status-risk-soft px-4 py-3 text-sm text-status-risk">
-          Reject failed — check bearer token and obligation id.
+          This rejection could not be recorded. Check your connection and try again.
         </p>
       ) : null}
 

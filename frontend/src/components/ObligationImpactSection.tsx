@@ -1,7 +1,3 @@
-/**
- * Feature 5 — Impact analysis (PRD): structured summary, bullets, per-system rationale,
- * gap/evidence, ticket-shaped tasks. GET /obligations/{id}/impact.
- */
 import { useQuery } from '@tanstack/react-query'
 import { useCallback, useMemo, useState } from 'react'
 import { apiFetchJson, IMPACT_API_BASE_URL } from '../lib/apiClient'
@@ -189,11 +185,11 @@ export function ObligationImpactSection({ obligationId, obligationRef }: Obligat
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-app-muted">
-            Impact & backlog hints
+            Impact & remediation
           </p>
           <p className="mt-2 text-sm leading-relaxed text-app-muted">
-            Tight, scannable impact: summary, key bullets, per-system scope, gap, evidence, and backlog-ready
-            tasks. Appears after approved mappings are processed.
+            See how this obligation affects engineering scope, where compliance gaps sit, and which follow-up
+            tasks to prioritise. Content appears after you approve mappings for this obligation.
           </p>
         </div>
         <button
@@ -216,17 +212,17 @@ export function ObligationImpactSection({ obligationId, obligationRef }: Obligat
 
       {isNotYet ? (
         <p className="mt-6 rounded-lg border border-app-border bg-app-subtle px-4 py-3 text-sm text-app-muted">
-          Impact not generated yet. It will appear here after you approve mappings and impact-service
-          finishes processing the event (use <strong className="font-medium text-app-text">Refresh</strong> if
-          you just approved).
+          Impact is not ready yet. It will appear here after you approve mappings and analysis completes. If you
+          just approved, select <strong className="font-medium text-app-text">Refresh</strong> to update this
+          view.
         </p>
       ) : null}
 
       {isOtherError ? (
         <p className="mt-6 rounded-lg border border-status-risk/35 bg-status-risk-soft px-4 py-3 text-sm text-status-risk">
-          Could not load impact
-          {status != null ? ` (${status})` : ''}. Check that impact-service is running and{' '}
-          <code className="font-mono text-xs">VITE_IMPACT_API_URL</code> points to it.
+          Could not load impact analysis
+          {status != null ? ` (${status})` : ''}. Check your connection and try again, or contact your
+          administrator if the problem continues.
         </p>
       ) : null}
 
