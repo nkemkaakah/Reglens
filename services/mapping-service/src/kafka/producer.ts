@@ -39,6 +39,32 @@ export async function disconnectProducer(): Promise<void> {
  * Publishes after obligation-service successfully stored approved mappings.
  * Topic name follows PRD / implementation plan ({@code obligation.mapped}).
  */
+export async function publishMappingSuggested(payload: {
+  eventId: string
+  obligationId: string
+  suggestedBy: string
+  occurredAt: string
+}): Promise<void> {
+  if (!producer) {
+    throw new Error('Kafka producer not initialised')
+  }
+  const value = JSON.stringify(payload)
+  await producer.send({
+    topic: config.kafkaTopicMappingSuggested,
+    messages: [
+      {
+        key: payload.obligationId,
+        value,
+      },
+    ],
+  })
+  log.info('Kafka publish ok', {
+    topic: config.kafkaTopicMappingSuggested,
+    obligationId: payload.obligationId,
+    suggestedBy: payload.suggestedBy,
+  })
+}
+
 export async function publishObligationMapped(payload: {
   eventId: string
   obligationId: string

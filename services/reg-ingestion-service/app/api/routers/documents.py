@@ -26,6 +26,7 @@ from urllib.parse import urlparse
 from app.api.deps import AnthropicClientDep, ObligationClientDep
 from app.core.config import LLM_MAX_OUTPUT_TOKENS, LLM_MODEL, settings
 from app.schemas.documents import DocumentCreate, IngestResponse, ObligationCreate, ObligationResponse
+from app.services.document_ingested_kafka import publish_document_ingested_sync
 from app.services.stub_pipeline import slug_document_ref_prefix
 
 logger = logging.getLogger(__name__)
@@ -493,6 +494,18 @@ async def ingest_document(
             pairs=structured_pairs,
         )
         created_obligations = await client.create_obligations_batch(obligation_rows)
+        try:
+            publish_document_ingested_sync(
+                document_id=created_doc.id,
+                obligation_ids=[o.id for o in created_obligations],
+                ingested_by=document_payload.ingested_by,
+            )
+        except Exception as kafka_exc:  # noqa: BLE001 — audit fan-out must not fail the ingest HTTP transaction
+            logger.warning(
+                "ingest: document.ingested Kafka publish failed document_id=%s: %s",
+                created_doc.id,
+                kafka_exc,
+            )
     except httpx.HTTPStatusError as exc:
         logger.error(
             "ingest: obligation-service HTTP %s for %s",

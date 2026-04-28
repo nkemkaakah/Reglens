@@ -14,6 +14,8 @@ const ConfigSchema = z.object({
   kafkaBrokers: z.string().min(1),
   /** PRD / implementation plan: event after approved mappings are persisted. */
   kafkaTopicMapped: z.string().default('obligation.mapped'),
+  /** Emitted when a reviewer starts AI-assisted mapping suggestions for an obligation. */
+  kafkaTopicMappingSuggested: z.string().default('mapping.suggested'),
   /** Anthropic API key; suggest-mappings returns 503 if empty. Provider is always Anthropic. */
   anthropicApiKey: z.string().optional().default(''),
   /** Catalogue fetch safety cap. */
@@ -35,6 +37,7 @@ function parseConfig(): AppConfig {
     obligationServiceToken: process.env.OBLIGATION_SERVICE_TOKEN,
     kafkaBrokers: process.env.KAFKA_BROKERS,
     kafkaTopicMapped: process.env.KAFKA_TOPIC_MAPPED,
+    kafkaTopicMappingSuggested: process.env.KAFKA_TOPIC_MAPPING_SUGGESTED,
     anthropicApiKey: process.env.ANTHROPIC_API_KEY?.trim() || '',
     catalogMaxPages: process.env.CATALOG_MAX_PAGES,
     catalogPageSize: process.env.CATALOG_PAGE_SIZE,

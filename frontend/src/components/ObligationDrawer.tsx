@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef } from 'react'
+import { EventTimeline } from './EventTimeline'
 import { ObligationImpactSection } from './ObligationImpactSection'
 import { ObligationMappingsSection } from './ObligationMappingsSection'
 import { StatusBadge } from './StatusBadge'
@@ -304,10 +305,11 @@ export function ObligationDrawer({ obligationId, onClose, initialPanel }: Obliga
                 <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-app-muted">
                   Workflow & approvals
                 </p>
-                <p className="mt-3 text-sm leading-relaxed text-app-muted">
-                  A timeline of status changes, approvals, and audit events for this obligation will appear here
-                  when your organisation enables workflow tracking.
-                </p>
+                <EventTimeline
+                  queryKey={['workflow', 'obligation', obligationId]}
+                  fetchPath={`/obligations/${obligationId}/events?size=50`}
+                  emptyLabel="No workflow events for this obligation yet."
+                />
               </div>
             </div>
           ) : null}

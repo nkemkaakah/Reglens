@@ -71,12 +71,14 @@ export function ObligationMappingsSection({ obligationId }: ObligationMappingsSe
   })
 
   const suggestMutation = useMutation({
-    mutationFn: () =>
-      apiFetchJson<{ obligationId: string; suggestions: MappingSuggestion[] }>(
+    mutationFn: () => {
+      const suggestedBy = reviewerBy.trim() || 'frontend-demo'
+      return apiFetchJson<{ obligationId: string; suggestions: MappingSuggestion[] }>(
         MAPPING_API_BASE_URL,
         `/obligations/${obligationId}/suggest-mappings`,
-        { method: 'POST', body: '{}' },
-      ),
+        { method: 'POST', body: JSON.stringify({ suggestedBy }) },
+      )
+    },
     onSuccess: (data) => {
       setSuggestions(data.suggestions ?? [])
       setSelectedKeys(new Set())

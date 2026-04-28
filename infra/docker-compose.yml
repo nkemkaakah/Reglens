@@ -31,9 +31,13 @@ services:
       OBLIGATION_SERVICE_BASE_URL: http://obligation-service:8080
       OBLIGATION_SERVICE_TOKEN: dev-service-token-change-me
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_TOPIC_DOCUMENT_INGESTED: document.ingested
     ports:
       - "8000:8000"
     depends_on:
+      kafka:
+        condition: service_healthy
       obligation-service:
         condition: service_started
       postgres:
@@ -51,6 +55,7 @@ services:
       OBLIGATION_SERVICE_TOKEN: dev-service-token-change-me
       KAFKA_BROKERS: kafka:9092
       KAFKA_TOPIC_MAPPED: obligation.mapped
+      KAFKA_TOPIC_MAPPING_SUGGESTED: mapping.suggested
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     ports:
       - "3000:3000"
@@ -119,11 +124,15 @@ services:
       SPRING_DATASOURCE_USERNAME: reglens
       SPRING_DATASOURCE_PASSWORD: reglens_dev
       SPRING_DATA_MONGODB_URI: mongodb://mongodb:27017/reglens_ai_registry
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      APP_KAFKA_TOPIC_AI_SYSTEM_LIFECYCLE: ai_system.lifecycle
       APP_SECURITY_SERVICE_TOKEN: dev-service-token-change-me
       APP_CORS_ALLOWED_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
     ports:
       - "8083:8083"
     depends_on:
+      kafka:
+        condition: service_healthy
       postgres:
         condition: service_healthy
       catalog-service:

@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -28,6 +29,7 @@ import com.reglens.ai_registry_service.repository.AiSystemRepository;
 import com.reglens.ai_registry_service.repository.AiSystemSpecifications;
 import com.reglens.ai_registry_service.repository.AiSystemToControlRepository;
 import com.reglens.ai_registry_service.repository.AiSystemToSystemRepository;
+import com.reglens.ai_registry_service.workflow.AiSystemLifecycleDomainEvent;
 
 /**
  * Application service for AI registry operations — orchestrates repositories and maps entities to API DTOs.
@@ -39,17 +41,20 @@ public class AiSystemService {
 	private final AiRiskAssessmentRepository riskAssessmentRepository;
 	private final AiSystemToControlRepository systemToControlRepository;
 	private final AiSystemToSystemRepository systemToSystemRepository;
+	private final ApplicationEventPublisher eventPublisher;
 
 	public AiSystemService(
 			AiSystemRepository aiSystemRepository,
 			AiRiskAssessmentRepository riskAssessmentRepository,
 			AiSystemToControlRepository systemToControlRepository,
-			AiSystemToSystemRepository systemToSystemRepository
+			AiSystemToSystemRepository systemToSystemRepository,
+			ApplicationEventPublisher eventPublisher
 	) {
 		this.aiSystemRepository = aiSystemRepository;
 		this.riskAssessmentRepository = riskAssessmentRepository;
 		this.systemToControlRepository = systemToControlRepository;
 		this.systemToSystemRepository = systemToSystemRepository;
+		this.eventPublisher = eventPublisher;
 	}
 
 	@Transactional(readOnly = true)
@@ -81,6 +86,8 @@ public class AiSystemService {
 		AiSystem entity = new AiSystem();
 		applyWriteRequest(entity, request);
 		AiSystem saved = aiSystemRepository.save(entity);
+		eventPublisher.publishEvent(
+				new AiSystemLifecycleDomainEvent(saved.getId(), "CREATED", actorFrom(request)));
 		return toDetailAfterWrite(saved);
 	}
 
@@ -90,7 +97,14 @@ public class AiSystemService {
 				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "AI system not found"));
 		applyWriteRequest(entity, request);
 		AiSystem saved = aiSystemRepository.save(entity);
+		eventPublisher.publishEvent(
+				new AiSystemLifecycleDomainEvent(saved.getId(), "UPDATED", actorFrom(request)));
 		return toDetailAfterWrite(saved);
+	}
+
+	private static String actorFrom(AiSystemWriteRequest request) {
+		String email = request.techLeadEmail();
+		return email != null && !email.isBlank() ? email.trim() : "ai-registry-service";
 	}
 
 	private static void applyWriteRequest(AiSystem entity, AiSystemWriteRequest request) {

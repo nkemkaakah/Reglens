@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { EventTimeline } from './EventTimeline'
 import { StatusBadge } from './StatusBadge'
 import {
   AI_REGISTRY_API_BASE_URL,
@@ -437,9 +438,13 @@ export function AiSystemDetailDrawer({ aiSystemId, onClose }: AiSystemDetailDraw
                 <p className="mt-3 text-sm text-app-muted">Coming soon</p>
               </div>
 
-              <div className="rounded-xl border border-dashed border-app-border bg-app-subtle/60 p-6">
+              <div className="rounded-xl border border-app-border bg-app-surface p-6 shadow-sm">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-app-muted">Activity</p>
-                <p className="mt-3 text-sm text-app-muted">Coming soon</p>
+                <EventTimeline
+                  queryKey={['workflow', 'ai-system', aiSystemId]}
+                  fetchPath={`/ai-systems/${aiSystemId}/events?size=50`}
+                  emptyLabel="No registry events for this AI system yet."
+                />
               </div>
             </div>
           ) : null}

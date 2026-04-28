@@ -295,3 +295,17 @@ export interface AiSystemDocumentWriteBody {
   body: string
 }
 
+/** Append-only row from workflow-service (Kafka-backed audit). */
+export interface WorkflowEventRow {
+  id: string
+  topic: string
+  type: string
+  occurredAt: string
+  actor: string | null
+  obligationId: string | null
+  obligationIds: string[] | null
+  documentId: string | null
+  aiSystemId: string | null
+  summary: string | null
+}
+

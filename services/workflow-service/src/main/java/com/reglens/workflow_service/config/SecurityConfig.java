@@ -21,7 +21,10 @@ public class SecurityConfig {
 				.cors(cors -> {})
 				.authorizeHttpRequests(auth -> auth
 						.requestMatchers("/actuator/**", "/error", "/error/**").permitAll()
+						.requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
 						.requestMatchers(HttpMethod.GET, "/").permitAll()
+						.requestMatchers(HttpMethod.GET, "/obligations/*/events", "/ai-systems/*/events", "/events")
+						.permitAll()
 						.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 						.anyRequest().denyAll()
 				);

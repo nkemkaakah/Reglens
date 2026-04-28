@@ -3,7 +3,7 @@ import { ZodError, z } from 'zod'
 import { randomUUID } from 'node:crypto'
 import * as obligationClient from '../clients/obligationClient.js'
 import * as catalogClient from '../clients/catalogClient.js'
-import { publishObligationMapped } from '../kafka/producer.js'
+import { publishMappingSuggested, publishObligationMapped } from '../kafka/producer.js'
 import { runSuggestMappings } from '../llm/suggestMappings.js'
 import { log } from '../log.js'
 
@@ -14,6 +14,10 @@ const MappingRejectionBodySchema = z.object({
   catalogueId: z.string().uuid(),
   rejectedBy: z.string().min(1, 'rejectedBy is required'),
   reason: z.string().optional().nullable(),
+})
+
+const SuggestMappingsBodySchema = z.object({
+  suggestedBy: z.string().min(1, 'suggestedBy is required'),
 })
 
 const ApproveMappingsBodySchema = z.object({
@@ -46,6 +50,7 @@ const ApproveMappingsBodySchema = z.object({
 router.post('/:obligationId/suggest-mappings', async (req, res, next) => {
   const obligationId = req.params.obligationId
   try {
+    const body = SuggestMappingsBodySchema.parse(req.body ?? {})
     const obligation = await obligationClient.getObligation(obligationId)
     const [controls, systems] = await Promise.all([
       catalogClient.fetchAllControls(),
@@ -59,9 +64,26 @@ router.post('/:obligationId/suggest-mappings', async (req, res, next) => {
       return
     }
     await obligationClient.postMappingSuggestStarted(obligationId)
+    try {
+      await publishMappingSuggested({
+        eventId: randomUUID(),
+        obligationId,
+        suggestedBy: body.suggestedBy,
+        occurredAt: new Date().toISOString(),
+      })
+    } catch (kafkaErr) {
+      log.warn('Kafka publish mapping.suggested failed (suggestions still returned)', {
+        obligationId,
+        message: String(kafkaErr),
+      })
+    }
     const suggestions = await runSuggestMappings(obligation, controls, systems)
     res.json({ obligationId, suggestions })
   } catch (e) {
+    if (e instanceof ZodError) {
+      res.status(400).json({ error: 'Validation failed', details: e.flatten() })
+      return
+    }
     next(e)
   }
 })

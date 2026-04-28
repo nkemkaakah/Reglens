@@ -7,6 +7,7 @@ from starlette.middleware.cors import CORSMiddleware
 
 from app.api.routers import api_router
 from app.core.config import settings
+from app.services.document_ingested_kafka import close_kafka_producer
 from app.services.obligation_client import ObligationClient
 
 logging.basicConfig(
@@ -31,6 +32,7 @@ async def lifespan(app: FastAPI):
     finally:
         await obligation_client.aclose()
         await app.state.anthropic_client.close()
+        close_kafka_producer()
 
 
 def create_app() -> FastAPI:

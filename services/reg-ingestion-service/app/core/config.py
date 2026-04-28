@@ -1,4 +1,4 @@
-from pydantic import AliasChoices, Field
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -16,6 +16,12 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: str = Field(
         default="",
     )
+    kafka_bootstrap_servers: str = ""
+    kafka_topic_document_ingested: str = "document.ingested"
+
+    @property
+    def kafka_enabled(self) -> bool:
+        return bool(self.kafka_bootstrap_servers.strip())
 
 
 settings = Settings()

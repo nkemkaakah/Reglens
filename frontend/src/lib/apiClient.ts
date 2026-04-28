@@ -18,6 +18,9 @@ export const IMPACT_API_BASE_URL =
 export const AI_REGISTRY_API_BASE_URL =
   import.meta.env.VITE_AI_REGISTRY_API_URL ?? 'http://localhost:8083'
 
+export const WORKFLOW_API_BASE_URL =
+  import.meta.env.VITE_WORKFLOW_API_URL ?? 'http://localhost:8084'
+
 type ApiError = Error & { status?: number; body?: string }
 
 async function parseError(response: Response): Promise<ApiError> {
