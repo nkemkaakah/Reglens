@@ -303,6 +303,8 @@ export interface WorkflowEventRow {
   occurredAt: string
   actor: string | null
   obligationId: string | null
+  obligationRef?: string | null
+  obligationTitle?: string | null
   obligationIds: string[] | null
   documentId: string | null
   aiSystemId: string | null

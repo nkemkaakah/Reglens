@@ -2,9 +2,11 @@ package com.reglens.impact_service.service;
 
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -105,11 +107,16 @@ public class ImpactService {
 		for (UUID systemId : distinctSystemIds(mappings)) {
 			systems.add(catalogClient.getSystem(systemId));
 		}
+		String mappingFingerprint = fingerprintMappings(mappings);
+		if (existing != null && mappingFingerprint.equals(existing.getMappingFingerprint())) {
+			return;
+		}
 
 		AnthropicImpactGenerator.LlmImpactResult generated = anthropicImpactGenerator.generate(obligation, controls, systems);
 		ImpactAnalysis target = existing == null ? new ImpactAnalysis() : existing;
 		target.setObligationId(event.obligationId());
 		target.setEventId(event.eventId());
+		target.setMappingFingerprint(mappingFingerprint);
 		target.setSummary(generated.summary());
 		target.setKeyEngineeringImpacts(writeStringList(generated.keyEngineeringImpacts()));
 		target.setComplianceGap(generated.complianceGap());
@@ -157,6 +164,18 @@ public class ImpactService {
 			}
 		}
 		return new ArrayList<>(ids);
+	}
+
+	private static String fingerprintMappings(ObligationMappingsResponse mappings) {
+		String controlPart = distinctControlIds(mappings).stream()
+				.map(UUID::toString)
+				.sorted(Comparator.naturalOrder())
+				.collect(Collectors.joining(","));
+		String systemPart = distinctSystemIds(mappings).stream()
+				.map(UUID::toString)
+				.sorted(Comparator.naturalOrder())
+				.collect(Collectors.joining(","));
+		return "controls=" + controlPart + "|systems=" + systemPart;
 	}
 
 	private JsonNode writeStringList(List<String> items) {

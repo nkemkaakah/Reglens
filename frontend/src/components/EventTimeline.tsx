@@ -1,6 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
-import { apiFetchJson, WORKFLOW_API_BASE_URL } from '../lib/apiClient'
-import type { Page, WorkflowEventRow } from '../types/api'
+import {
+  apiFetchJson,
+  OBLIGATION_API_BASE_URL,
+  WORKFLOW_API_BASE_URL,
+} from '../lib/apiClient'
+import type { ObligationSummary, Page, WorkflowEventRow } from '../types/api'
 
 type EventTimelineProps = {
   queryKey: readonly unknown[]
@@ -22,6 +26,26 @@ export function EventTimeline({ queryKey, fetchPath, emptyLabel }: EventTimeline
     queryFn: async () =>
       apiFetchJson<Page<WorkflowEventRow>>(WORKFLOW_API_BASE_URL, fetchPath),
   })
+  const obligationIds = Array.from(
+    new Set((eventsQuery.data?.content ?? []).map((e) => e.obligationId).filter(Boolean) as string[]),
+  )
+  const obligationsByIdQuery = useQuery({
+    queryKey: ['workflow', 'obligation-context', ...obligationIds],
+    enabled: obligationIds.length > 0,
+    queryFn: async () => {
+      const rows = await Promise.all(
+        obligationIds.map(async (id) => {
+          try {
+            const row = await apiFetchJson<ObligationSummary>(OBLIGATION_API_BASE_URL, `/obligations/${id}`)
+            return [id, row] as const
+          } catch {
+            return [id, null] as const
+          }
+        }),
+      )
+      return Object.fromEntries(rows) as Record<string, ObligationSummary | null>
+    },
+  })
 
   if (eventsQuery.isLoading) {
     return <p className="text-sm text-app-muted">Loading activity…</p>
@@ -36,6 +60,7 @@ export function EventTimeline({ queryKey, fetchPath, emptyLabel }: EventTimeline
   }
 
   const rows = eventsQuery.data?.content ?? []
+  const obligationsById = obligationsByIdQuery.data ?? {}
   if (rows.length === 0) {
     return (
       <p className="text-sm text-app-muted">
@@ -56,6 +81,26 @@ export function EventTimeline({ queryKey, fetchPath, emptyLabel }: EventTimeline
             <p className="text-xs text-app-muted">{formatWhen(e.occurredAt)}</p>
           </div>
           <p className="mt-2 leading-relaxed text-app-text">{e.summary ?? '—'}</p>
+          {(() => {
+            if (!e.obligationId) return null
+            const obligation = obligationsById[e.obligationId]
+            const ref = e.obligationRef ?? obligation?.ref
+            const title = e.obligationTitle ?? obligation?.title
+            if (!ref && !title) {
+              return (
+                <p className="mt-1 text-xs text-app-muted">
+                  Obligation: <span className="font-mono">{e.obligationId}</span>
+                </p>
+              )
+            }
+            return (
+              <p className="mt-1 text-xs text-app-muted">
+                {ref ? <span className="font-mono">{ref}</span> : null}
+                {ref && title ? ' — ' : null}
+                {title ? <span className="text-app-text">{title}</span> : null}
+              </p>
+            )
+          })()}
           {e.actor ? (
             <p className="mt-1 text-xs text-app-muted">
               Actor: <span className="font-medium text-app-text">{e.actor}</span>

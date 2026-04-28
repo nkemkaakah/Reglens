@@ -1,0 +1,22 @@
+---
+description: Implementation principles, DRY, and testing standards
+alwaysApply: true
+---
+
+# Code Standards
+
+## Core Principle
+
+Always find the **simplest, most minimal correct solution** before writing any code.
+
+Before implementing anything, ask: "What is the least amount of code that solves this correctly?"
+
+Prefer editing existing code over adding new code. Prefer small, focused changes over rewrites.
+
+## DRY
+
+Do not copy-paste logic or configuration when a single shared place (function, module, constant) is clearer. Extract duplication only when it reduces real maintenance cost; avoid premature abstraction for one-off cases.
+
+## Testing
+
+Write tests that assert observable behavior and important edge cases, not implementation details. Keep tests focused and fast; prefer deterministic data and isolated units or slices over brittle full-stack coupling unless an integration test is explicitly the goal.

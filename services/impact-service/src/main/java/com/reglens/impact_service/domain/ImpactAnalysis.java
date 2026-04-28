@@ -27,6 +27,13 @@ public class ImpactAnalysis {
 	@Column(name = "event_id", nullable = false)
 	private UUID eventId;
 
+	/**
+	 * Deterministic hash of distinct mapped control/system IDs used for idempotency.
+	 * If unchanged, impact generation is skipped and no new impact.generated event is emitted.
+	 */
+	@Column(name = "mapping_fingerprint")
+	private String mappingFingerprint;
+
 	@Column(nullable = false)
 	private String summary;
 
@@ -75,6 +82,14 @@ public class ImpactAnalysis {
 
 	public void setEventId(UUID eventId) {
 		this.eventId = eventId;
+	}
+
+	public String getMappingFingerprint() {
+		return mappingFingerprint;
+	}
+
+	public void setMappingFingerprint(String mappingFingerprint) {
+		this.mappingFingerprint = mappingFingerprint;
 	}
 
 	public String getSummary() {

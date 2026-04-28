@@ -48,7 +48,7 @@ public class AiSystemLifecycleKafkaBridge {
 			payload.put("actor", event.actor() != null ? event.actor() : "");
 			String json = objectMapper.writeValueAsString(payload);
 			kafkaTemplate.send(topic, event.aiSystemId().toString(), json);
-			log.debug("Published {} for aiSystemId={}", topic, event.aiSystemId());
+			log.info("Published {} for aiSystemId={}", topic, event.aiSystemId());
 		} catch (JsonProcessingException ex) {
 			log.error("Failed to serialise ai_system.lifecycle payload for {}", event.aiSystemId(), ex);
 		} catch (RuntimeException ex) {
