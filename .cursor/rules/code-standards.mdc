@@ -1,5 +1,5 @@
 ---
-description: Implementation principles, DRY, and testing standards
+description: Implementation principles, DRY, testing standards; no unsolicited builds or migrations
 alwaysApply: true
 ---
 
@@ -20,3 +20,9 @@ Do not copy-paste logic or configuration when a single shared place (function, m
 ## Testing
 
 Write tests that assert observable behavior and important edge cases, not implementation details. Keep tests focused and fast; prefer deterministic data and isolated units or slices over brittle full-stack coupling unless an integration test is explicitly the goal.
+
+## Builds and migrations
+
+Do **not** run build commands (for example `mvn`, `gradle`, `npm run build`, `pnpm build`, `docker compose build`) or database migration commands (for example Flyway/Liquibase CLI, `alembic upgrade`, raw SQL migrate scripts) when making routine code changes.
+
+Only run builds or migrations if the user explicitly asks you to run them, or if they are strictly required to verify a change the user requested (and then say why before running).

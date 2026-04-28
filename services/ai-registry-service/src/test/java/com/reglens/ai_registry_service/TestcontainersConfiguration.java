@@ -5,6 +5,7 @@ import org.springframework.boot.testcontainers.service.connection.ServiceConnect
 import org.springframework.context.annotation.Bean;
 import org.testcontainers.containers.MongoDBContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.kafka.KafkaContainer;
 import org.testcontainers.utility.DockerImageName;
 
 /**
@@ -13,6 +14,12 @@ import org.testcontainers.utility.DockerImageName;
  */
 @TestConfiguration(proxyBeanMethods = false)
 public class TestcontainersConfiguration {
+
+	@Bean
+	@ServiceConnection
+	public KafkaContainer kafkaContainer() {
+		return new KafkaContainer(DockerImageName.parse("apache/kafka-native:latest"));
+	}
 
 	@Bean
 	@ServiceConnection

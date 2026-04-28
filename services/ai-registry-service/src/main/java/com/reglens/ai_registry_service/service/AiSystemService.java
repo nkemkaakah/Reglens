@@ -1,19 +1,26 @@
 package com.reglens.ai_registry_service.service;
 
+import java.time.Instant;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import org.springframework.context.ApplicationEventPublisher;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.reglens.ai_registry_service.domain.AiRiskAssessment;
 import com.reglens.ai_registry_service.domain.AiSystem;
 import com.reglens.ai_registry_service.domain.AiSystemToControl;
@@ -29,7 +36,6 @@ import com.reglens.ai_registry_service.repository.AiSystemRepository;
 import com.reglens.ai_registry_service.repository.AiSystemSpecifications;
 import com.reglens.ai_registry_service.repository.AiSystemToControlRepository;
 import com.reglens.ai_registry_service.repository.AiSystemToSystemRepository;
-import com.reglens.ai_registry_service.workflow.AiSystemLifecycleDomainEvent;
 
 /**
  * Application service for AI registry operations — orchestrates repositories and maps entities to API DTOs.
@@ -37,24 +43,32 @@ import com.reglens.ai_registry_service.workflow.AiSystemLifecycleDomainEvent;
 @Service
 public class AiSystemService {
 
+	private static final Logger log = LoggerFactory.getLogger(AiSystemService.class);
+
 	private final AiSystemRepository aiSystemRepository;
 	private final AiRiskAssessmentRepository riskAssessmentRepository;
 	private final AiSystemToControlRepository systemToControlRepository;
 	private final AiSystemToSystemRepository systemToSystemRepository;
-	private final ApplicationEventPublisher eventPublisher;
+	private final ObjectMapper objectMapper;
+	private final KafkaTemplate<String, String> kafkaTemplate;
+	private final String lifecycleTopic;
 
 	public AiSystemService(
 			AiSystemRepository aiSystemRepository,
 			AiRiskAssessmentRepository riskAssessmentRepository,
 			AiSystemToControlRepository systemToControlRepository,
 			AiSystemToSystemRepository systemToSystemRepository,
-			ApplicationEventPublisher eventPublisher
+			ObjectMapper objectMapper,
+			KafkaTemplate<String, String> kafkaTemplate,
+			@Value("${app.kafka.topic-ai-system-lifecycle}") String lifecycleTopic
 	) {
 		this.aiSystemRepository = aiSystemRepository;
 		this.riskAssessmentRepository = riskAssessmentRepository;
 		this.systemToControlRepository = systemToControlRepository;
 		this.systemToSystemRepository = systemToSystemRepository;
-		this.eventPublisher = eventPublisher;
+		this.objectMapper = objectMapper;
+		this.kafkaTemplate = kafkaTemplate;
+		this.lifecycleTopic = lifecycleTopic;
 	}
 
 	@Transactional(readOnly = true)
@@ -86,8 +100,7 @@ public class AiSystemService {
 		AiSystem entity = new AiSystem();
 		applyWriteRequest(entity, request);
 		AiSystem saved = aiSystemRepository.save(entity);
-		eventPublisher.publishEvent(
-				new AiSystemLifecycleDomainEvent(saved.getId(), "CREATED", actorFrom(request)));
+		publishAiSystemLifecycle(saved.getId(), "CREATED", actorFrom(request));
 		return toDetailAfterWrite(saved);
 	}
 
@@ -97,9 +110,24 @@ public class AiSystemService {
 				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "AI system not found"));
 		applyWriteRequest(entity, request);
 		AiSystem saved = aiSystemRepository.save(entity);
-		eventPublisher.publishEvent(
-				new AiSystemLifecycleDomainEvent(saved.getId(), "UPDATED", actorFrom(request)));
+		publishAiSystemLifecycle(saved.getId(), "UPDATED", actorFrom(request));
 		return toDetailAfterWrite(saved);
+	}
+
+	private void publishAiSystemLifecycle(UUID aiSystemId, String action, String actor) {
+		try {
+			Map<String, Object> payload = new LinkedHashMap<>();
+			payload.put("eventId", UUID.randomUUID().toString());
+			payload.put("aiSystemId", aiSystemId.toString());
+			payload.put("action", action);
+			payload.put("occurredAt", Instant.now().toString());
+			payload.put("actor", actor != null ? actor : "");
+			String json = objectMapper.writeValueAsString(payload);
+			kafkaTemplate.send(lifecycleTopic, aiSystemId.toString(), json);
+			log.info("Published {} for aiSystemId={}", lifecycleTopic, aiSystemId);
+		} catch (JsonProcessingException ex) {
+			throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to serialise ai_system.lifecycle", ex);
+		}
 	}
 
 	private static String actorFrom(AiSystemWriteRequest request) {
