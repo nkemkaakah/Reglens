@@ -4,6 +4,7 @@ import { AiSystemDetailDrawer } from '../components/AiSystemDetailDrawer'
 import { EmptyState } from '../components/EmptyState'
 import { StatusBadge } from '../components/StatusBadge'
 import { AI_REGISTRY_API_BASE_URL, apiFetchJson, CATALOG_API_BASE_URL } from '../lib/apiClient'
+import { buildAiSystemWriteBody } from '../lib/aiSystemForm'
 import type { AiSystemDetail, AiSystemSummary, AiSystemWriteBody, ControlCatalogRow, Page, TeamSummary } from '../types/api'
 
 type Filters = {
@@ -36,19 +37,6 @@ function formatDate(value: string | null | undefined): string {
   const dt = new Date(value)
   if (Number.isNaN(dt.getTime())) return value
   return dt.toLocaleDateString()
-}
-
-function parseDataSources(raw: string): string[] | null {
-  const lines = raw
-    .split(/\r?\n|,/)
-    .map((s) => s.trim())
-    .filter(Boolean)
-  return lines.length ? lines : null
-}
-
-function emptyToNull(s: string): string | null {
-  const t = s.trim()
-  return t ? t : null
 }
 
 export function AiRegistryPage() {
@@ -383,23 +371,23 @@ export function AiRegistryPage() {
                 const name = formName.trim()
                 const useCase = formUseCase.trim()
                 if (!ref || !name || !useCase || !formOwnerTeamId.trim()) return
-                const body: AiSystemWriteBody = {
-                  ref,
-                  name,
-                  description: emptyToNull(formDescription),
-                  aiType: formAiType,
-                  useCase,
-                  businessDomain: emptyToNull(formDomain),
-                  modelProvider: emptyToNull(formModelProvider),
-                  modelName: emptyToNull(formModelName),
-                  dataSources: parseDataSources(formDataSources),
-                  ownerTeamId: formOwnerTeamId.trim(),
-                  techLeadEmail: emptyToNull(formTechLead),
-                  riskRating: formRisk.trim() || null,
-                  deployedAt: formDeployedAt.trim() || null,
-                  lastReviewed: formLastReviewed.trim() || null,
-                  status: formStatus,
-                }
+                const body: AiSystemWriteBody = buildAiSystemWriteBody({
+                  formRef,
+                  formName,
+                  formDescription,
+                  formAiType,
+                  formUseCase,
+                  formDomain,
+                  formModelProvider,
+                  formModelName,
+                  formDataSources,
+                  formOwnerTeamId,
+                  formTechLead,
+                  formRisk,
+                  formDeployedAt,
+                  formLastReviewed,
+                  formStatus,
+                })
                 createMutation.mutate(body)
               }}
             >

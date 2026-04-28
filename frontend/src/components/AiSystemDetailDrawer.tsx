@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { EventTimeline } from './EventTimeline'
 import { StatusBadge } from './StatusBadge'
@@ -7,13 +7,17 @@ import {
   apiFetchJson,
   CATALOG_API_BASE_URL,
 } from '../lib/apiClient'
+import { aiSystemDetailToFormFields, buildAiSystemWriteBody } from '../lib/aiSystemForm'
 import type {
   AiSystemDetail,
   AiSystemDocumentDetail,
   AiSystemDocumentSummary,
   AiSystemDocumentWriteBody,
+  AiSystemWriteBody,
   CatalogSystemRow,
   ControlCatalogRow,
+  Page,
+  TeamSummary,
 } from '../types/api'
 
 type AiSystemDetailDrawerProps = {
@@ -52,6 +56,23 @@ export function AiSystemDetailDrawer({ aiSystemId, onClose }: AiSystemDetailDraw
   const [newDocTitle, setNewDocTitle] = useState('')
   const [newDocContentType, setNewDocContentType] = useState('text/plain')
   const [newDocBody, setNewDocBody] = useState('')
+  const [isEditing, setIsEditing] = useState(false)
+
+  const [formRef, setFormRef] = useState('')
+  const [formName, setFormName] = useState('')
+  const [formDescription, setFormDescription] = useState('')
+  const [formAiType, setFormAiType] = useState('LLM')
+  const [formUseCase, setFormUseCase] = useState('')
+  const [formDomain, setFormDomain] = useState('')
+  const [formModelProvider, setFormModelProvider] = useState('')
+  const [formModelName, setFormModelName] = useState('')
+  const [formDataSources, setFormDataSources] = useState('')
+  const [formOwnerTeamId, setFormOwnerTeamId] = useState('')
+  const [formTechLead, setFormTechLead] = useState('')
+  const [formRisk, setFormRisk] = useState('MEDIUM')
+  const [formDeployedAt, setFormDeployedAt] = useState('')
+  const [formLastReviewed, setFormLastReviewed] = useState('')
+  const [formStatus, setFormStatus] = useState('PROPOSED')
 
   const detailQuery = useQuery({
     queryKey: ['ai-registry', 'system', aiSystemId],
@@ -62,6 +83,74 @@ export function AiSystemDetailDrawer({ aiSystemId, onClose }: AiSystemDetailDraw
   })
 
   const detail = detailQuery.data
+
+  const teamsSeedQuery = useQuery({
+    queryKey: ['catalog', 'controls-for-owner-teams'],
+    queryFn: async () => {
+      const params = new URLSearchParams()
+      params.set('page', '0')
+      params.set('size', '50')
+      params.set('sort', 'ref,asc')
+      const data = await apiFetchJson<Page<ControlCatalogRow>>(CATALOG_API_BASE_URL, `/controls?${params}`)
+      const byId = new Map<string, TeamSummary>()
+      for (const row of data.content) {
+        const t = row.ownerTeam
+        if (t) byId.set(t.id, t)
+      }
+      return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name))
+    },
+  })
+  const teams = teamsSeedQuery.data ?? []
+
+  useEffect(() => {
+    setIsEditing(false)
+  }, [aiSystemId])
+
+  const hydrateFormFromDetail = (d: AiSystemDetail) => {
+    const f = aiSystemDetailToFormFields(d)
+    setFormRef(f.formRef)
+    setFormName(f.formName)
+    setFormDescription(f.formDescription)
+    setFormAiType(f.formAiType)
+    setFormUseCase(f.formUseCase)
+    setFormDomain(f.formDomain)
+    setFormModelProvider(f.formModelProvider)
+    setFormModelName(f.formModelName)
+    setFormDataSources(f.formDataSources)
+    setFormOwnerTeamId(f.formOwnerTeamId)
+    setFormTechLead(f.formTechLead)
+    setFormRisk(f.formRisk)
+    setFormDeployedAt(f.formDeployedAt)
+    setFormLastReviewed(f.formLastReviewed)
+    setFormStatus(f.formStatus)
+  }
+
+  const startEditing = () => {
+    if (!detail) return
+    hydrateFormFromDetail(detail)
+    setIsEditing(true)
+  }
+
+  const cancelEditing = () => {
+    if (detail) hydrateFormFromDetail(detail)
+    setIsEditing(false)
+  }
+
+  const updateMutation = useMutation({
+    mutationFn: async (body: AiSystemWriteBody) => {
+      return await apiFetchJson<AiSystemDetail>(AI_REGISTRY_API_BASE_URL, `/ai-systems/${aiSystemId}`, {
+        method: 'PUT',
+        body: JSON.stringify(body),
+      })
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['ai-registry', 'system', aiSystemId] })
+      void queryClient.invalidateQueries({ queryKey: ['ai-registry', 'list'] })
+      void queryClient.invalidateQueries({ queryKey: ['workflow', 'ai-system', aiSystemId] })
+      setIsEditing(false)
+    },
+  })
+
   const controlIds = useMemo(
     () => detail?.linkedControls.map((c) => c.controlId) ?? [],
     [detail?.linkedControls],
@@ -172,13 +261,34 @@ export function AiSystemDetailDrawer({ aiSystemId, onClose }: AiSystemDetailDraw
                 {detailQuery.isError ? <StatusBadge label="Failed to load" tone="risk" /> : null}
               </div>
             </div>
-            <button
-              type="button"
-              className="shrink-0 rounded-md border border-app-border px-3 py-2 text-sm text-app-muted transition hover:bg-app-subtle hover:text-app-text"
-              onClick={onClose}
-            >
-              Close
-            </button>
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
+              {detail && !detailQuery.isError ? (
+                isEditing ? (
+                  <button
+                    type="button"
+                    className="rounded-md border border-app-border px-3 py-2 text-sm text-app-text transition hover:bg-app-subtle"
+                    onClick={cancelEditing}
+                  >
+                    Cancel edit
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="rounded-md border border-app-border px-3 py-2 text-sm font-semibold text-app-text transition hover:bg-app-subtle"
+                    onClick={startEditing}
+                  >
+                    Edit
+                  </button>
+                )
+              ) : null}
+              <button
+                type="button"
+                className="rounded-md border border-app-border px-3 py-2 text-sm text-app-muted transition hover:bg-app-subtle hover:text-app-text"
+                onClick={onClose}
+              >
+                Close
+              </button>
+            </div>
           </div>
         </header>
 
@@ -197,49 +307,266 @@ export function AiSystemDetailDrawer({ aiSystemId, onClose }: AiSystemDetailDraw
             <div className="mx-auto max-w-full space-y-8">
               <div className="rounded-xl border border-app-border bg-app-surface p-6 shadow-sm">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-app-muted">About</p>
-                <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div>
-                    <p className="text-xs font-semibold text-app-muted">Use case</p>
-                    <p className="mt-1 text-sm leading-relaxed text-app-text [overflow-wrap:anywhere]">
-                      {detail.useCase}
+                {isEditing ? (
+                  <form
+                    className="mt-4 space-y-4"
+                    onSubmit={(e) => {
+                      e.preventDefault()
+                      const ref = formRef.trim()
+                      const name = formName.trim()
+                      const useCase = formUseCase.trim()
+                      if (!ref || !name || !useCase || !formOwnerTeamId.trim()) return
+                      updateMutation.mutate(
+                        buildAiSystemWriteBody({
+                          formRef,
+                          formName,
+                          formDescription,
+                          formAiType,
+                          formUseCase,
+                          formDomain,
+                          formModelProvider,
+                          formModelName,
+                          formDataSources,
+                          formOwnerTeamId,
+                          formTechLead,
+                          formRisk,
+                          formDeployedAt,
+                          formLastReviewed,
+                          formStatus,
+                        }),
+                      )
+                    }}
+                  >
+                    <p className="text-xs text-app-muted">
+                      Saves governance profile fields; changes appear in Activity below (service bearer token required).
                     </p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-app-muted">Owner team</p>
-                    <p className="mt-1 text-sm text-app-text">{detail.ownerTeamName ?? '—'}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-app-muted">Tech lead</p>
-                    <p className="mt-1 text-sm text-app-text">{detail.techLeadEmail ?? '—'}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-app-muted">Model</p>
-                    <p className="mt-1 text-sm text-app-text">
-                      {[detail.modelProvider, detail.modelName].filter(Boolean).join(' · ') || '—'}
-                    </p>
-                  </div>
-                </div>
-                <p className="mt-5 text-xs font-semibold text-app-muted">Description</p>
-                <p className="mt-2 text-sm leading-relaxed text-app-text [overflow-wrap:anywhere]">
-                  {detail.description ?? '—'}
-                </p>
-                {detail.dataSources?.length ? (
+                    <label className="block">
+                      <span className="text-xs font-semibold text-app-muted">Ref</span>
+                      <input
+                        className="mt-1 block w-full rounded-md border border-app-border px-3 py-2 text-sm"
+                        value={formRef}
+                        onChange={(e) => setFormRef(e.target.value)}
+                        required
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="text-xs font-semibold text-app-muted">Name</span>
+                      <input
+                        className="mt-1 block w-full rounded-md border border-app-border px-3 py-2 text-sm"
+                        value={formName}
+                        onChange={(e) => setFormName(e.target.value)}
+                        required
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="text-xs font-semibold text-app-muted">Use case</span>
+                      <textarea
+                        className="mt-1 block min-h-[72px] w-full rounded-md border border-app-border px-3 py-2 text-sm"
+                        value={formUseCase}
+                        onChange={(e) => setFormUseCase(e.target.value)}
+                        required
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="text-xs font-semibold text-app-muted">Description</span>
+                      <textarea
+                        className="mt-1 block min-h-[56px] w-full rounded-md border border-app-border px-3 py-2 text-sm"
+                        value={formDescription}
+                        onChange={(e) => setFormDescription(e.target.value)}
+                      />
+                    </label>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <label className="block">
+                        <span className="text-xs font-semibold text-app-muted">AI type</span>
+                        <select
+                          className="mt-1 block w-full rounded-md border border-app-border px-3 py-2 text-sm"
+                          value={formAiType}
+                          onChange={(e) => setFormAiType(e.target.value)}
+                        >
+                          <option value="ML">ML</option>
+                          <option value="LLM">LLM</option>
+                          <option value="GENAI">GenAI</option>
+                          <option value="RULE_BASED">Rule-based</option>
+                          <option value="HYBRID">Hybrid</option>
+                        </select>
+                      </label>
+                      <label className="block">
+                        <span className="text-xs font-semibold text-app-muted">Status</span>
+                        <select
+                          className="mt-1 block w-full rounded-md border border-app-border px-3 py-2 text-sm"
+                          value={formStatus}
+                          onChange={(e) => setFormStatus(e.target.value)}
+                        >
+                          <option value="PROPOSED">Proposed</option>
+                          <option value="IN_REVIEW">In review</option>
+                          <option value="LIVE">Live</option>
+                          <option value="DECOMMISSIONED">Decommissioned</option>
+                        </select>
+                      </label>
+                    </div>
+                    <label className="block">
+                      <span className="text-xs font-semibold text-app-muted">Business domain</span>
+                      <input
+                        className="mt-1 block w-full rounded-md border border-app-border px-3 py-2 text-sm"
+                        value={formDomain}
+                        onChange={(e) => setFormDomain(e.target.value)}
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="text-xs font-semibold text-app-muted">Owner team</span>
+                      <select
+                        className="mt-1 block w-full rounded-md border border-app-border px-3 py-2 text-sm"
+                        value={formOwnerTeamId}
+                        onChange={(e) => setFormOwnerTeamId(e.target.value)}
+                        required
+                      >
+                        {teams.length === 0 ? (
+                          <option value="">Load catalogue for teams…</option>
+                        ) : null}
+                        {teams.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.name} ({t.domain})
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="block">
+                      <span className="text-xs font-semibold text-app-muted">Tech lead email</span>
+                      <input
+                        className="mt-1 block w-full rounded-md border border-app-border px-3 py-2 text-sm"
+                        type="email"
+                        value={formTechLead}
+                        onChange={(e) => setFormTechLead(e.target.value)}
+                      />
+                    </label>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <label className="block">
+                        <span className="text-xs font-semibold text-app-muted">Risk rating</span>
+                        <select
+                          className="mt-1 block w-full rounded-md border border-app-border px-3 py-2 text-sm"
+                          value={formRisk}
+                          onChange={(e) => setFormRisk(e.target.value)}
+                        >
+                          <option value="LOW">Low</option>
+                          <option value="MEDIUM">Medium</option>
+                          <option value="HIGH">High</option>
+                          <option value="CRITICAL">Critical</option>
+                        </select>
+                      </label>
+                      <label className="block">
+                        <span className="text-xs font-semibold text-app-muted">Deployed at</span>
+                        <input
+                          className="mt-1 block w-full rounded-md border border-app-border px-3 py-2 text-sm"
+                          type="date"
+                          value={formDeployedAt}
+                          onChange={(e) => setFormDeployedAt(e.target.value)}
+                        />
+                      </label>
+                    </div>
+                    <label className="block">
+                      <span className="text-xs font-semibold text-app-muted">Last reviewed</span>
+                      <input
+                        className="mt-1 block w-full rounded-md border border-app-border px-3 py-2 text-sm"
+                        type="date"
+                        value={formLastReviewed}
+                        onChange={(e) => setFormLastReviewed(e.target.value)}
+                      />
+                    </label>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <label className="block">
+                        <span className="text-xs font-semibold text-app-muted">Model provider</span>
+                        <input
+                          className="mt-1 block w-full rounded-md border border-app-border px-3 py-2 text-sm"
+                          value={formModelProvider}
+                          onChange={(e) => setFormModelProvider(e.target.value)}
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="text-xs font-semibold text-app-muted">Model name</span>
+                        <input
+                          className="mt-1 block w-full rounded-md border border-app-border px-3 py-2 text-sm"
+                          value={formModelName}
+                          onChange={(e) => setFormModelName(e.target.value)}
+                        />
+                      </label>
+                    </div>
+                    <label className="block">
+                      <span className="text-xs font-semibold text-app-muted">Data sources (one per line)</span>
+                      <textarea
+                        className="mt-1 block min-h-[64px] w-full rounded-md border border-app-border px-3 py-2 text-sm"
+                        value={formDataSources}
+                        onChange={(e) => setFormDataSources(e.target.value)}
+                      />
+                    </label>
+                    {updateMutation.isError ? (
+                      <p className="text-xs text-status-risk">
+                        Save failed. Confirm catalogue teams and service bearer token for writes.
+                      </p>
+                    ) : null}
+                    <div className="flex justify-end gap-2 pt-1">
+                      <button
+                        type="button"
+                        className="rounded-md border border-app-border px-4 py-2 text-sm text-app-muted hover:bg-app-subtle"
+                        onClick={cancelEditing}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={updateMutation.isPending}
+                        className="rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-60"
+                      >
+                        {updateMutation.isPending ? 'Saving…' : 'Save changes'}
+                      </button>
+                    </div>
+                  </form>
+                ) : (
                   <>
-                    <p className="mt-5 text-xs font-semibold text-app-muted">Data sources</p>
-                    <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-app-text">
-                      {detail.dataSources.map((d) => (
-                        <li key={d} className="[overflow-wrap:anywhere]">
-                          {d}
-                        </li>
-                      ))}
-                    </ul>
+                    <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <div>
+                        <p className="text-xs font-semibold text-app-muted">Use case</p>
+                        <p className="mt-1 text-sm leading-relaxed text-app-text [overflow-wrap:anywhere]">
+                          {detail.useCase}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold text-app-muted">Owner team</p>
+                        <p className="mt-1 text-sm text-app-text">{detail.ownerTeamName ?? '—'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold text-app-muted">Tech lead</p>
+                        <p className="mt-1 text-sm text-app-text">{detail.techLeadEmail ?? '—'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold text-app-muted">Model</p>
+                        <p className="mt-1 text-sm text-app-text">
+                          {[detail.modelProvider, detail.modelName].filter(Boolean).join(' · ') || '—'}
+                        </p>
+                      </div>
+                    </div>
+                    <p className="mt-5 text-xs font-semibold text-app-muted">Description</p>
+                    <p className="mt-2 text-sm leading-relaxed text-app-text [overflow-wrap:anywhere]">
+                      {detail.description ?? '—'}
+                    </p>
+                    {detail.dataSources?.length ? (
+                      <>
+                        <p className="mt-5 text-xs font-semibold text-app-muted">Data sources</p>
+                        <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-app-text">
+                          {detail.dataSources.map((d) => (
+                            <li key={d} className="[overflow-wrap:anywhere]">
+                              {d}
+                            </li>
+                          ))}
+                        </ul>
+                      </>
+                    ) : null}
+                    <p className="mt-5 text-xs font-semibold text-app-muted">Dates</p>
+                    <p className="mt-2 text-sm text-app-text">
+                      Deployed {formatDate(detail.deployedAt)} · Last reviewed {formatDate(detail.lastReviewed)} ·
+                      Registered {formatDate(detail.createdAt)}
+                    </p>
                   </>
-                ) : null}
-                <p className="mt-5 text-xs font-semibold text-app-muted">Dates</p>
-                <p className="mt-2 text-sm text-app-text">
-                  Deployed {formatDate(detail.deployedAt)} · Last reviewed {formatDate(detail.lastReviewed)} ·
-                  Registered {formatDate(detail.createdAt)}
-                </p>
+                )}
               </div>
 
               <div className="rounded-xl border border-app-border bg-app-surface p-6 shadow-sm">

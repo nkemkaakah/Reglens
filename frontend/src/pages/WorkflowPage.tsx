@@ -1,5 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { EventTimeline } from '../components/EventTimeline'
+
+const PAGE_SIZE = 15
 
 const TYPE_OPTIONS = [
   { label: 'All event types', value: '' },
@@ -15,14 +17,21 @@ export function WorkflowPage() {
   const [type, setType] = useState('')
   const [since, setSince] = useState('')
   const [until, setUntil] = useState('')
+  const [page, setPage] = useState(0)
+
+  useEffect(() => {
+    setPage(0)
+  }, [type, since, until])
+
   const fetchPath = useMemo(() => {
     const params = new URLSearchParams()
-    params.set('size', '50')
+    params.set('size', String(PAGE_SIZE))
+    params.set('page', String(page))
     if (type) params.set('type', type)
     if (since) params.set('since', new Date(since).toISOString())
     if (until) params.set('until', new Date(until).toISOString())
     return `/events?${params.toString()}`
-  }, [since, type, until])
+  }, [page, since, type, until])
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -45,6 +54,7 @@ export function WorkflowPage() {
               setType('')
               setSince('')
               setUntil('')
+              setPage(0)
             }}
           >
             Clear filters
@@ -85,9 +95,10 @@ export function WorkflowPage() {
           </label>
         </div>
         <EventTimeline
-          queryKey={['workflow', 'global', type, since, until]}
+          queryKey={['workflow', 'global', type, since, until, page]}
           fetchPath={fetchPath}
           emptyLabel="No events yet. Approve mappings, run impact analysis, ingest documents, or register AI systems to populate this feed."
+          pagination={{ onPageChange: setPage }}
         />
       </div>
     </div>
