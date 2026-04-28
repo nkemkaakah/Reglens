@@ -1,4 +1,3 @@
-import cors from 'cors'
 import express, { type ErrorRequestHandler, type RequestHandler } from 'express'
 import { ZodError } from 'zod'
 import { HttpError } from './httpError.js'
@@ -7,27 +6,9 @@ import { bearerAuth } from './middleware/bearerAuth.js'
 import { healthRouter } from './routes/health.js'
 import { obligationsRouter } from './routes/obligations.js'
 
-const DEFAULT_CORS = ['http://localhost:5173', 'http://127.0.0.1:5173']
-
-function parseCorsOrigins(): string[] {
-  const raw = process.env.MAPPING_CORS_ORIGINS?.trim()
-  if (!raw) return DEFAULT_CORS
-  return raw
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean)
-}
-
 export function createApp(): express.Express {
   const app = express()
   app.disable('x-powered-by')
-  app.use(
-    cors({
-      origin: parseCorsOrigins(),
-      methods: ['GET', 'POST', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization'],
-    }),
-  )
   app.use(express.json({ limit: '2mb' }))
 
   app.use(healthRouter)

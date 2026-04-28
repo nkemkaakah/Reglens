@@ -1,0 +1,83 @@
+server:
+  port: 8090
+
+spring:
+  application:
+    name: api-gateway
+  http:
+    codecs:
+      max-in-memory-size: 32MB
+  cloud:
+    gateway:
+      server:
+        webflux:
+          httpclient:
+            connect-timeout: 15000
+            response-timeout: 120s
+          globalcors:
+            add-to-simple-url-handler-mapping: true
+            cors-configurations:
+              '[/**]':
+                allowedOrigins:
+                  - "http://localhost:5173"
+                  - "http://127.0.0.1:5173"
+                allowedMethods:
+                  - GET
+                  - POST
+                  - PUT
+                  - PATCH
+                  - DELETE
+                  - OPTIONS
+                allowedHeaders:
+                  - Authorization
+                  - Content-Type
+                allowCredentials: true
+          routes:
+            - id: obligation
+              uri: ${GATEWAY_UPSTREAM_OBLIGATION:http://localhost:8080}
+              predicates:
+                - Path=/obligation/**
+              filters:
+                - StripPrefix=1
+            - id: mapping
+              uri: ${GATEWAY_UPSTREAM_MAPPING:http://localhost:3000}
+              predicates:
+                - Path=/mapping/**
+              filters:
+                - StripPrefix=1
+            - id: catalog
+              uri: ${GATEWAY_UPSTREAM_CATALOG:http://localhost:8081}
+              predicates:
+                - Path=/catalog/**
+              filters:
+                - StripPrefix=1
+            - id: impact
+              uri: ${GATEWAY_UPSTREAM_IMPACT:http://localhost:8082}
+              predicates:
+                - Path=/impact/**
+              filters:
+                - StripPrefix=1
+            - id: ai-registry
+              uri: ${GATEWAY_UPSTREAM_AI_REGISTRY:http://localhost:8083}
+              predicates:
+                - Path=/ai-registry/**
+              filters:
+                - StripPrefix=1
+            - id: workflow
+              uri: ${GATEWAY_UPSTREAM_WORKFLOW:http://localhost:8084}
+              predicates:
+                - Path=/workflow/**
+              filters:
+                - StripPrefix=1
+            - id: ingestion
+              uri: ${GATEWAY_UPSTREAM_INGESTION:http://localhost:8000}
+              predicates:
+                - Path=/ingestion/**
+              filters:
+                - StripPrefix=1
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

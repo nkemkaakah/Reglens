@@ -47,4 +47,5 @@ All routes under `/obligations/*` require:
 | `KAFKA_BROKERS` | Comma-separated; in Docker `kafka:9092`, on host `localhost:9094` |
 | `KAFKA_TOPIC_MAPPED` | Default `obligation.mapped` |
 | `ANTHROPIC_API_KEY` | Required for suggest-mappings |
-| `MAPPING_CORS_ORIGINS` | Optional comma-separated origins for the SPA |
+
+Browser CORS is handled by **api-gateway** (`/mapping/**`); this service does not set `Access-Control-*` headers.

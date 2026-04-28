@@ -3,7 +3,6 @@ import logging
 
 import anthropic
 from fastapi import FastAPI
-from starlette.middleware.cors import CORSMiddleware
 
 from app.api.routers import api_router
 from app.core.config import settings
@@ -47,15 +46,6 @@ def create_app() -> FastAPI:
         return {"service": settings.app_name, "status": "UP"}
 
     application.include_router(api_router, prefix="/api")
-    application.add_middleware(
-        CORSMiddleware,
-        allow_origins=[
-            "http://localhost:5173",
-            "http://127.0.0.1:5173",
-        ],
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
     return application
 
 

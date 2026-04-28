@@ -1,25 +1,29 @@
 import { getAuthHeaders } from './auth'
 
+/** Single origin for browser calls; each backend is mounted under a path segment (see api-gateway). */
+const apiGatewayBase =
+  import.meta.env.VITE_API_GATEWAY_URL ?? 'http://localhost:8090'
+
 export const OBLIGATION_API_BASE_URL =
-  import.meta.env.VITE_OBLIGATION_API_URL ?? 'http://localhost:8080'
+  import.meta.env.VITE_OBLIGATION_API_URL ?? `${apiGatewayBase}/obligation`
 
 export const INGESTION_API_BASE_URL =
-  import.meta.env.VITE_INGESTION_API_URL ?? 'http://localhost:8000'
+  import.meta.env.VITE_INGESTION_API_URL ?? `${apiGatewayBase}/ingestion`
 
 export const CATALOG_API_BASE_URL =
-  import.meta.env.VITE_CATALOG_API_URL ?? 'http://localhost:8081'
+  import.meta.env.VITE_CATALOG_API_URL ?? `${apiGatewayBase}/catalog`
 
 export const MAPPING_API_BASE_URL =
-  import.meta.env.VITE_MAPPING_API_URL ?? 'http://localhost:3000'
+  import.meta.env.VITE_MAPPING_API_URL ?? `${apiGatewayBase}/mapping`
 
 export const IMPACT_API_BASE_URL =
-  import.meta.env.VITE_IMPACT_API_URL ?? 'http://localhost:8082'
+  import.meta.env.VITE_IMPACT_API_URL ?? `${apiGatewayBase}/impact`
 
 export const AI_REGISTRY_API_BASE_URL =
-  import.meta.env.VITE_AI_REGISTRY_API_URL ?? 'http://localhost:8083'
+  import.meta.env.VITE_AI_REGISTRY_API_URL ?? `${apiGatewayBase}/ai-registry`
 
 export const WORKFLOW_API_BASE_URL =
-  import.meta.env.VITE_WORKFLOW_API_URL ?? 'http://localhost:8084'
+  import.meta.env.VITE_WORKFLOW_API_URL ?? `${apiGatewayBase}/workflow`
 
 type ApiError = Error & { status?: number; body?: string }
 

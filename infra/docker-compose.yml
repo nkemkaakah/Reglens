@@ -13,7 +13,6 @@ services:
       SPRING_DATASOURCE_USERNAME: reglens
       SPRING_DATASOURCE_PASSWORD: reglens_dev
       APP_SECURITY_SERVICE_TOKEN: dev-service-token-change-me
-      APP_CORS_ALLOWED_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
     ports:
       - "8080:8080"
     depends_on:
@@ -83,7 +82,6 @@ services:
       APP_CATALOG_SERVICE_BASE_URL: http://catalog-service:8081
       APP_UPSTREAM_TIMEOUT_MS: "60000"
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      APP_CORS_ALLOWED_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
       APP_SECURITY_SERVICE_TOKEN: dev-service-token-change-me
     ports:
       - "8082:8082"
@@ -107,7 +105,6 @@ services:
       SPRING_DATASOURCE_USERNAME: reglens
       SPRING_DATASOURCE_PASSWORD: reglens_dev
       APP_SECURITY_SERVICE_TOKEN: dev-service-token-change-me
-      APP_CORS_ALLOWED_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
     ports:
       - "8081:8081"
     depends_on:
@@ -127,7 +124,6 @@ services:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       APP_KAFKA_TOPIC_AI_SYSTEM_LIFECYCLE: ai_system.lifecycle
       APP_SECURITY_SERVICE_TOKEN: dev-service-token-change-me
-      APP_CORS_ALLOWED_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
     ports:
       - "8083:8083"
     depends_on:
@@ -148,7 +144,6 @@ services:
     environment:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       SPRING_DATA_MONGODB_URI: mongodb://mongodb:27017/reglens_workflow
-      APP_CORS_ALLOWED_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
     ports:
       - "8084:8084"
     depends_on:
@@ -156,6 +151,37 @@ services:
         condition: service_healthy
       mongodb:
         condition: service_healthy
+
+  api-gateway:
+    build:
+      context: ../services/api-gateway
+      dockerfile: Dockerfile
+    container_name: reglens-api-gateway
+    environment:
+      GATEWAY_UPSTREAM_OBLIGATION: http://obligation-service:8080
+      GATEWAY_UPSTREAM_MAPPING: http://mapping-service:3000
+      GATEWAY_UPSTREAM_CATALOG: http://catalog-service:8081
+      GATEWAY_UPSTREAM_IMPACT: http://impact-service:8082
+      GATEWAY_UPSTREAM_AI_REGISTRY: http://ai-registry-service:8083
+      GATEWAY_UPSTREAM_WORKFLOW: http://workflow-service:8084
+      GATEWAY_UPSTREAM_INGESTION: http://reg-ingestion-service:8000
+    ports:
+      - "8090:8090"
+    depends_on:
+      obligation-service:
+        condition: service_started
+      mapping-service:
+        condition: service_started
+      catalog-service:
+        condition: service_started
+      impact-service:
+        condition: service_started
+      ai-registry-service:
+        condition: service_started
+      workflow-service:
+        condition: service_started
+      reg-ingestion-service:
+        condition: service_started
 
   postgres:
     image: postgres:16

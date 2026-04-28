@@ -1,9 +1,15 @@
 ---
-description: Implementation principles, DRY, testing standards; no unsolicited builds or migrations
+description: Align with product spec; implementation principles, DRY, testing; no unsolicited builds/migrations
 alwaysApply: true
 ---
 
 # Code Standards
+
+## Product specification
+
+Treat **`Reglens - Regualtory Tech.md`** (repository root) as the authoritative product specification. Before planning or implementing non-trivial changes, read the relevant sections so work serves product goals (scope, personas, workflows, architecture intent) and stays consistent with the PRD.
+
+If a change would diverge from the spec, call that out and propose the smallest adjustment that stays aligned—or ask the user before expanding scope.
 
 ## Core Principle
 

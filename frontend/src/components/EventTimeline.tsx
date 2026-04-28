@@ -55,8 +55,10 @@ export function EventTimeline({ queryKey, fetchPath, emptyLabel, pagination }: E
   if (eventsQuery.isError) {
     return (
       <p className="text-sm text-status-risk">
-        Could not load workflow events. Ensure workflow-service is running and{' '}
-        <span className="font-mono text-xs">VITE_WORKFLOW_API_URL</span> points to it.
+        Could not load workflow events. Ensure workflow-service is running and the API gateway (
+        <span className="font-mono text-xs">VITE_API_GATEWAY_URL</span>, default{' '}
+        <span className="font-mono text-xs">http://localhost:8090</span>) can reach{' '}
+        <span className="font-mono text-xs">/workflow</span>.
       </p>
     )
   }
