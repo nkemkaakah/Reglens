@@ -1,9 +1,14 @@
 package com.reglens.catalog_service.config;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 
-import org.springframework.beans.factory.annotation.Value;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.http.HttpHeaders;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -18,15 +23,21 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 /**
- * Dev bearer gate for catalogue writes — same contract as obligation-service so ops scripts share one secret.
+ * Validates bearer JWT claims (issuer, audience, expiry) and installs an authenticated principal.
  */
 @Component
 public class ServiceTokenAuthFilter extends OncePerRequestFilter {
 
-	private final String expectedToken;
+	private static final String AUTH_SCHEME = "Bearer ";
+	private static final String EXPECTED_ISSUER = "https://demo.reglens.io";
+	private static final String EXPECTED_AUDIENCE = "https://api.reglens.io";
+	private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {
+	};
 
-	public ServiceTokenAuthFilter(@Value("${app.security.service-token}") String expectedToken) {
-		this.expectedToken = expectedToken;
+	private final ObjectMapper objectMapper;
+
+	public ServiceTokenAuthFilter(ObjectMapper objectMapper) {
+		this.objectMapper = objectMapper;
 	}
 
 	@Override
@@ -35,18 +46,39 @@ public class ServiceTokenAuthFilter extends OncePerRequestFilter {
 			@NonNull HttpServletResponse response,
 			@NonNull FilterChain filterChain
 	) throws ServletException, IOException {
-		String header = request.getHeader(HttpHeaders.AUTHORIZATION);
-		if (header != null && header.regionMatches(true, 0, "Bearer ", 0, 7)) {
-			String token = header.substring(7).trim();
-			if (expectedToken.equals(token)) {
-				var authentication = new UsernamePasswordAuthenticationToken(
-						"service-client",
-						null,
-						List.of(new SimpleGrantedAuthority("ROLE_SERVICE"))
-				);
-				SecurityContextHolder.getContext().setAuthentication(authentication);
-			}
+		String authorization = request.getHeader(HttpHeaders.AUTHORIZATION);
+		if (authorization != null && authorization.regionMatches(true, 0, AUTH_SCHEME, 0, AUTH_SCHEME.length())) {
+			String token = authorization.substring(AUTH_SCHEME.length()).trim();
+			authenticateIfValid(token);
 		}
 		filterChain.doFilter(request, response);
+	}
+
+	private void authenticateIfValid(String token) {
+		String[] parts = token.split("\\.");
+		if (parts.length < 2) {
+			return;
+		}
+		try {
+			String payloadJson = new String(Base64.getUrlDecoder().decode(parts[1]), StandardCharsets.UTF_8);
+			Map<String, Object> payload = objectMapper.readValue(payloadJson, MAP_TYPE);
+			if (!EXPECTED_ISSUER.equals(payload.get("iss")) || !EXPECTED_AUDIENCE.equals(payload.get("aud"))) {
+				return;
+			}
+			Number exp = (Number) payload.get("exp");
+			if (exp == null || exp.longValue() <= Instant.now().getEpochSecond()) {
+				return;
+			}
+			String subject = String.valueOf(payload.getOrDefault("sub", "unknown-user"));
+			String role = String.valueOf(payload.getOrDefault("https://reglens.io/role", "USER"));
+			var authentication = new UsernamePasswordAuthenticationToken(
+					subject,
+					null,
+					List.of(new SimpleGrantedAuthority("ROLE_" + role))
+			);
+			SecurityContextHolder.getContext().setAuthentication(authentication);
+		} catch (Exception ignored) {
+			// Invalid tokens are treated as unauthenticated.
+		}
 	}
 }

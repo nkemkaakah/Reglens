@@ -21,11 +21,18 @@ type SystemResponseRaw = {
   description: string | null
 }
 
-async function fetchPage<T>(path: string, searchParams: URLSearchParams): Promise<SpringPage<T>> {
+async function fetchPage<T>(
+  path: string,
+  searchParams: URLSearchParams,
+  authorizationHeader: string,
+): Promise<SpringPage<T>> {
   const base = config.catalogServiceBaseUrl.replace(/\/$/, '')
   const url = `${base}${path}?${searchParams.toString()}`
   const ctrl = AbortSignal.timeout(config.upstreamTimeoutMs)
-  const res = await fetch(url, { signal: ctrl })
+  const res = await fetch(url, {
+    signal: ctrl,
+    headers: { Authorization: authorizationHeader },
+  })
   if (!res.ok) {
     const body = await res.text().catch(() => '')
     log.warn('catalog-service error', { url, status: res.status, bodySnippet: body.slice(0, 300) })
@@ -38,14 +45,14 @@ async function fetchPage<T>(path: string, searchParams: URLSearchParams): Promis
  * Walks all pages of GET /controls — bounded by {@code catalogMaxPages} so a misconfigured cluster
  * cannot loop forever.
  */
-export async function fetchAllControls(): Promise<ControlSummary[]> {
+export async function fetchAllControls(authorizationHeader: string): Promise<ControlSummary[]> {
   const out: ControlSummary[] = []
   for (let page = 0; page < config.catalogMaxPages; page++) {
     const params = new URLSearchParams({
       page: String(page),
       size: String(config.catalogPageSize),
     })
-    const pageData = await fetchPage<ControlResponseRaw>('/controls', params)
+    const pageData = await fetchPage<ControlResponseRaw>('/controls', params, authorizationHeader)
     for (const row of pageData.content) {
       out.push({
         id: row.id,
@@ -63,14 +70,14 @@ export async function fetchAllControls(): Promise<ControlSummary[]> {
 }
 
 /** Walks all pages of GET /systems (same pagination contract as controls). */
-export async function fetchAllSystems(): Promise<SystemSummary[]> {
+export async function fetchAllSystems(authorizationHeader: string): Promise<SystemSummary[]> {
   const out: SystemSummary[] = []
   for (let page = 0; page < config.catalogMaxPages; page++) {
     const params = new URLSearchParams({
       page: String(page),
       size: String(config.catalogPageSize),
     })
-    const pageData = await fetchPage<SystemResponseRaw>('/systems', params)
+    const pageData = await fetchPage<SystemResponseRaw>('/systems', params, authorizationHeader)
     for (const row of pageData.content) {
       out.push({
         id: row.id,

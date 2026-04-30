@@ -11,8 +11,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 /**
- * authenticated writes using the
- * {@link ServiceTokenAuthFilter} bearer secret. Stateless session policy matches typical API usage.
+ * Stateless API security with bearer JWT authentication for all business endpoints.
  */
 @Configuration
 @EnableWebSecurity
@@ -39,13 +38,10 @@ public class SecurityConfig {
 								"/error",
 								"/error/**"
 						).permitAll()
+						.requestMatchers("/actuator/**").permitAll()
 						.requestMatchers(HttpMethod.GET, "/").permitAll()
-						.requestMatchers(HttpMethod.GET, "/impacts").permitAll()
-						.requestMatchers(HttpMethod.GET, "/obligations/*/impact").permitAll()
-						.requestMatchers(HttpMethod.GET, "/obligations/**", "/documents/**").permitAll()
 						.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-						.requestMatchers(HttpMethod.POST, "/documents", "/documents/**", "/obligations", "/obligations/**")
-						.authenticated()
+						.requestMatchers("/impacts/**", "/obligations/**", "/documents/**").authenticated()
 						.anyRequest().denyAll()
 				)
 				.addFilterBefore(serviceTokenAuthFilter, UsernamePasswordAuthenticationFilter.class);

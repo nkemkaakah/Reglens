@@ -11,7 +11,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 /**
- * Public reads for catalogue exploration; writes require the shared service bearer — Feature 3 until JWT resource server.
+ * Security with bearer JWT authentication for all business endpoints.
  */
 @Configuration
 @EnableWebSecurity
@@ -38,12 +38,8 @@ public class SecurityConfig {
 						).permitAll()
 						.requestMatchers("/actuator/**").permitAll()
 						.requestMatchers(HttpMethod.GET, "/").permitAll()
-						.requestMatchers(HttpMethod.GET, "/controls/**", "/systems/**").permitAll()
 						.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-						.requestMatchers(HttpMethod.POST, "/controls", "/controls/**", "/systems", "/systems/**")
-						.authenticated()
-						.requestMatchers(HttpMethod.PUT, "/controls/**", "/systems/**")
-						.authenticated()
+						.requestMatchers("/controls/**", "/systems/**").authenticated()
 						.anyRequest().denyAll()
 				)
 				.addFilterBefore(serviceTokenAuthFilter, UsernamePasswordAuthenticationFilter.class);

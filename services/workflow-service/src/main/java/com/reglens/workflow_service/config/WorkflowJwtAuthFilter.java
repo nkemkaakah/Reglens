@@ -1,4 +1,4 @@
-package com.reglens.ai_registry_service.config;
+package com.reglens.workflow_service.config;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -7,8 +7,6 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.http.HttpHeaders;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -17,16 +15,16 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-/**
- * Validates bearer JWT claims (issuer, audience, expiry) and installs an authenticated principal.
- */
 @Component
-public class ServiceTokenAuthFilter extends OncePerRequestFilter {
+public class WorkflowJwtAuthFilter extends OncePerRequestFilter {
 
 	private static final String AUTH_SCHEME = "Bearer ";
 	private static final String EXPECTED_ISSUER = "https://demo.reglens.io";
@@ -36,7 +34,7 @@ public class ServiceTokenAuthFilter extends OncePerRequestFilter {
 
 	private final ObjectMapper objectMapper;
 
-	public ServiceTokenAuthFilter(ObjectMapper objectMapper) {
+	public WorkflowJwtAuthFilter(ObjectMapper objectMapper) {
 		this.objectMapper = objectMapper;
 	}
 

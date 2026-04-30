@@ -49,12 +49,13 @@ const ApproveMappingsBodySchema = z.object({
  */
 router.post('/:obligationId/suggest-mappings', async (req, res, next) => {
   const obligationId = req.params.obligationId
+  const authorization = req.headers.authorization ?? ''
   try {
     const body = SuggestMappingsBodySchema.parse(req.body ?? {})
-    const obligation = await obligationClient.getObligation(obligationId)
+    const obligation = await obligationClient.getObligation(obligationId, authorization)
     const [controls, systems] = await Promise.all([
-      catalogClient.fetchAllControls(),
-      catalogClient.fetchAllSystems(),
+      catalogClient.fetchAllControls(authorization),
+      catalogClient.fetchAllSystems(authorization),
     ])
     if (controls.length === 0 && systems.length === 0) {
       res.status(422).json({
@@ -63,7 +64,7 @@ router.post('/:obligationId/suggest-mappings', async (req, res, next) => {
       })
       return
     }
-    await obligationClient.postMappingSuggestStarted(obligationId)
+    await obligationClient.postMappingSuggestStarted(obligationId, authorization)
     try {
       await publishMappingSuggested({
         eventId: randomUUID(),
@@ -91,6 +92,7 @@ router.post('/:obligationId/suggest-mappings', async (req, res, next) => {
 /** Records a human rejection of a suggested candidate (obligation-service is source of truth). */
 router.post('/:obligationId/mapping-rejections', async (req, res, next) => {
   const obligationId = req.params.obligationId
+  const authorization = req.headers.authorization ?? ''
   try {
     const body = MappingRejectionBodySchema.parse(req.body)
     const row = await obligationClient.postMappingRejection(obligationId, {
@@ -98,7 +100,7 @@ router.post('/:obligationId/mapping-rejections', async (req, res, next) => {
       catalogueId: body.catalogueId,
       rejectedBy: body.rejectedBy,
       reason: body.reason ?? undefined,
-    })
+    }, authorization)
     res.status(201).json(row)
   } catch (e) {
     if (e instanceof ZodError) {
@@ -114,6 +116,7 @@ router.post('/:obligationId/mapping-rejections', async (req, res, next) => {
  */
 router.post('/:obligationId/mappings', async (req, res, next) => {
   const obligationId = req.params.obligationId
+  const authorization = req.headers.authorization ?? ''
   try {
     const body = ApproveMappingsBodySchema.parse(req.body)
     if (body.controls.length === 0 && body.systems.length === 0) {
@@ -141,8 +144,8 @@ router.post('/:obligationId/mappings', async (req, res, next) => {
     }))
 
     // Sequential writes keep logs and obligation-side transactions easier to reason about than Promise.all.
-    await obligationClient.postControlMappings(obligationId, controlRows)
-    await obligationClient.postSystemMappings(obligationId, systemRows)
+    await obligationClient.postControlMappings(obligationId, controlRows, authorization)
+    await obligationClient.postSystemMappings(obligationId, systemRows, authorization)
 
     await publishObligationMapped({
       eventId: randomUUID(),

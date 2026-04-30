@@ -8,8 +8,6 @@ const ConfigSchema = z.object({
   port: z.coerce.number().default(3000),
   obligationServiceBaseUrl: z.string().url(),
   catalogServiceBaseUrl: z.string().url(),
-  /** Same bearer secret obligation-service expects for POST writes (ingestion + mappings). */
-  obligationServiceToken: z.string().min(1),
   /** Comma-separated brokers; in Docker use kafka:9092, on host use localhost:9094. */
   kafkaBrokers: z.string().min(1),
   /** PRD / implementation plan: event after approved mappings are persisted. */
@@ -34,7 +32,6 @@ function parseConfig(): AppConfig {
     port: process.env.PORT,
     obligationServiceBaseUrl: process.env.OBLIGATION_SERVICE_BASE_URL,
     catalogServiceBaseUrl: process.env.CATALOG_SERVICE_BASE_URL,
-    obligationServiceToken: process.env.OBLIGATION_SERVICE_TOKEN,
     kafkaBrokers: process.env.KAFKA_BROKERS,
     kafkaTopicMapped: process.env.KAFKA_TOPIC_MAPPED,
     kafkaTopicMappingSuggested: process.env.KAFKA_TOPIC_MAPPING_SUGGESTED,

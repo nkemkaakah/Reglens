@@ -81,6 +81,7 @@ export async function apiUploadForm<T>(
     method: init.method ?? 'POST',
     body: form,
     headers: {
+      ...getAuthHeaders(),
       ...(init.headers ?? {}),
     },
   })

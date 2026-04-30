@@ -13,7 +13,7 @@ export function createApp(): express.Express {
 
   app.use(healthRouter)
 
-  // Feature 4 orchestration — same bearer contract as obligation-service writes.
+  // Protected mapping routes — require a valid bearer JWT.
   app.use('/obligations', bearerAuth, obligationsRouter)
 
   const notFound: RequestHandler = (_req, res) => {

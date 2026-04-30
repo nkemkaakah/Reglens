@@ -11,8 +11,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 /**
- * Stateless API security: public reads for the governance UI; writes (including Mongo document uploads) require the
- * shared service bearer — mirrors catalog-service until a JWT resource server is introduced.
+ * Stateless API security with bearer JWT authentication for all business endpoints.
  */
 @Configuration
 @EnableWebSecurity
@@ -39,10 +38,8 @@ public class SecurityConfig {
 						).permitAll()
 						.requestMatchers("/actuator/**").permitAll()
 						.requestMatchers(HttpMethod.GET, "/").permitAll()
-						.requestMatchers(HttpMethod.GET, "/ai-systems", "/ai-systems/**").permitAll()
 						.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-						.requestMatchers(HttpMethod.POST, "/ai-systems", "/ai-systems/**").authenticated()
-						.requestMatchers(HttpMethod.PUT, "/ai-systems/**").authenticated()
+						.requestMatchers("/ai-systems/**").authenticated()
 						.anyRequest().denyAll()
 				)
 				.addFilterBefore(serviceTokenAuthFilter, UsernamePasswordAuthenticationFilter.class);

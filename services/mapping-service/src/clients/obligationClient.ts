@@ -3,17 +3,22 @@ import { HttpError } from '../httpError.js'
 import { log } from '../log.js'
 import type { ObligationDetail } from '../types/upstream.js'
 
-function authHeaders(): HeadersInit {
-  return {
-    Authorization: `Bearer ${config.obligationServiceToken}`,
-    'Content-Type': 'application/json',
-  }
+function authHeaders(authorizationHeader: string): HeadersInit {
+  return { Authorization: authorizationHeader, 'Content-Type': 'application/json' }
 }
 
-async function fetchJson<T>(path: string, init: RequestInit = {}): Promise<T> {
+async function fetchJson<T>(
+  path: string,
+  authorizationHeader: string,
+  init: RequestInit = {},
+): Promise<T> {
   const url = `${config.obligationServiceBaseUrl.replace(/\/$/, '')}${path}`
   const ctrl = AbortSignal.timeout(config.upstreamTimeoutMs)
-  const res = await fetch(url, { ...init, headers: { ...authHeaders(), ...init.headers }, signal: ctrl })
+  const res = await fetch(url, {
+    ...init,
+    headers: { ...authHeaders(authorizationHeader), ...init.headers },
+    signal: ctrl,
+  })
   if (!res.ok) {
     const body = await res.text().catch(() => '')
     log.warn('obligation-service error', { url, status: res.status, bodySnippet: body.slice(0, 500) })
@@ -23,18 +28,24 @@ async function fetchJson<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 /** Full obligation payload for suggest-mappings (Feature 4). */
-export async function getObligation(obligationId: string): Promise<ObligationDetail> {
-  return fetchJson<ObligationDetail>(`/obligations/${obligationId}`)
+export async function getObligation(
+  obligationId: string,
+  authorizationHeader: string,
+): Promise<ObligationDetail> {
+  return fetchJson<ObligationDetail>(`/obligations/${obligationId}`, authorizationHeader)
 }
 
 /** UNMAPPED → IN_PROGRESS when user starts Suggest mappings . */
-export async function postMappingSuggestStarted(obligationId: string): Promise<void> {
+export async function postMappingSuggestStarted(
+  obligationId: string,
+  authorizationHeader: string,
+): Promise<void> {
   const path = `/obligations/${obligationId}/mapping-suggest-started`
   const url = `${config.obligationServiceBaseUrl.replace(/\/$/, '')}${path}`
   const ctrl = AbortSignal.timeout(config.upstreamTimeoutMs)
   const res = await fetch(url, {
     method: 'POST',
-    headers: { ...authHeaders() },
+    headers: { ...authHeaders(authorizationHeader) },
     signal: ctrl,
   })
   if (!res.ok) {
@@ -67,21 +78,23 @@ export type SystemMappingPayload = {
 export async function postControlMappings(
   obligationId: string,
   rows: ControlMappingPayload[],
+  authorizationHeader: string,
 ): Promise<unknown> {
   if (rows.length === 0) return []
   const path = `/obligations/${obligationId}/mappings/controls`
   log.info('POST obligation mappings/controls', { obligationId, count: rows.length })
-  return fetchJson(path, { method: 'POST', body: JSON.stringify(rows) })
+  return fetchJson(path, authorizationHeader, { method: 'POST', body: JSON.stringify(rows) })
 }
 
 export async function postSystemMappings(
   obligationId: string,
   rows: SystemMappingPayload[],
+  authorizationHeader: string,
 ): Promise<unknown> {
   if (rows.length === 0) return []
   const path = `/obligations/${obligationId}/mappings/systems`
   log.info('POST obligation mappings/systems', { obligationId, count: rows.length })
-  return fetchJson(path, { method: 'POST', body: JSON.stringify(rows) })
+  return fetchJson(path, authorizationHeader, { method: 'POST', body: JSON.stringify(rows) })
 }
 
 export type MappingRejectionPayload = {
@@ -103,8 +116,9 @@ export type MappingRejectionRow = {
 export async function postMappingRejection(
   obligationId: string,
   body: MappingRejectionPayload,
+  authorizationHeader: string,
 ): Promise<MappingRejectionRow> {
   const path = `/obligations/${obligationId}/mapping-rejections`
   log.info('POST obligation mapping-rejection', { obligationId, catalogueKind: body.catalogueKind })
-  return fetchJson<MappingRejectionRow>(path, { method: 'POST', body: JSON.stringify(body) })
+  return fetchJson<MappingRejectionRow>(path, authorizationHeader, { method: 'POST', body: JSON.stringify(body) })
 }

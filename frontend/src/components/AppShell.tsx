@@ -1,6 +1,8 @@
 import { Bell, Moon, Sun } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { useAuth } from '../hooks/useAuth'
+import { endSession } from '../lib/session'
 
 type ThemeMode = 'light' | 'dark'
 
@@ -38,6 +40,8 @@ const getInitialTheme = (): ThemeMode => {
 }
 
 export function AppShell() {
+  const navigate = useNavigate()
+  const { user, role } = useAuth()
   const [theme, setTheme] = useState<ThemeMode>(getInitialTheme)
 
   useEffect(() => {
@@ -85,6 +89,20 @@ export function AppShell() {
                 Ingest sources, triage obligations, map controls and systems, and review impact in one workspace.
               </p>
               <div className="flex items-center gap-2">
+                <div className="mr-2 hidden text-right md:block">
+                  <p className="text-xs font-medium text-app-text">{user?.name ?? 'Unknown user'}</p>
+                  <p className="text-[11px] uppercase tracking-wide text-app-muted">{role ?? 'No role'}</p>
+                </div>
+                <button
+                  type="button"
+                  className="inline-flex items-center rounded-md border border-app-border px-2.5 py-2 text-xs text-app-muted hover:bg-app-subtle hover:text-app-text"
+                  onClick={() => {
+                    endSession()
+                    navigate('/login', { replace: true })
+                  }}
+                >
+                  Switch Persona
+                </button>
                 <button
                   type="button"
                   className="inline-flex items-center rounded-md border border-app-border px-2.5 py-2 text-app-muted hover:bg-app-subtle hover:text-app-text"

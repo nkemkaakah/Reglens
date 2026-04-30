@@ -11,8 +11,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 /**
- * Phase 1 security model: public reads for the SPA, authenticated writes for ingestion using the
- * {@link ServiceTokenAuthFilter} bearer secret. Stateless session policy matches typical API usage.
+ * Security with bearer JWT authentication for all business endpoints.
  */
 @Configuration
 @EnableWebSecurity
@@ -37,13 +36,10 @@ public class SecurityConfig {
 								"/swagger-ui/**",
 								"/v3/api-docs/**"
 						).permitAll()
+						.requestMatchers("/actuator/**").permitAll()
 						.requestMatchers(HttpMethod.GET, "/").permitAll()
-						.requestMatchers(HttpMethod.GET, "/obligations/**", "/documents/**").permitAll()
 						.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-						.requestMatchers(HttpMethod.POST, "/documents", "/documents/**", "/obligations", "/obligations/**")
-						.authenticated()
-						.requestMatchers(HttpMethod.PATCH, "/obligations/**")
-						.authenticated()
+						.requestMatchers("/obligations/**", "/documents/**").authenticated()
 						.anyRequest().denyAll()
 				)
 				.addFilterBefore(serviceTokenAuthFilter, UsernamePasswordAuthenticationFilter.class);

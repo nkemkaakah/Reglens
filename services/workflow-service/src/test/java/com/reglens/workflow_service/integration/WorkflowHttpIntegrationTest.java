@@ -1,7 +1,6 @@
 package com.reglens.workflow_service.integration;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.junit.jupiter.api.Test;
@@ -33,16 +32,14 @@ class WorkflowHttpIntegrationTest {
 	private MockMvc mockMvc;
 
 	@Test
-	void globalEventsEndpointIsPublic() throws Exception {
+	void globalEventsEndpointRequiresAuthentication() throws Exception {
 		mockMvc.perform(get("/events").param("size", "5"))
-				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.content").isArray());
+				.andExpect(status().isForbidden());
 	}
 
 	@Test
-	void obligationEventsEndpointIsPublic() throws Exception {
+	void obligationEventsEndpointRequiresAuthentication() throws Exception {
 		mockMvc.perform(get("/obligations/00000000-0000-0000-0000-000000000099/events"))
-				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.content").isArray());
+				.andExpect(status().isForbidden());
 	}
 }
