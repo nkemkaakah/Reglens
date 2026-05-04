@@ -4,6 +4,7 @@ import { EventTimeline } from './EventTimeline'
 import { ObligationImpactSection } from './ObligationImpactSection'
 import { ObligationMappingsSection } from './ObligationMappingsSection'
 import { StatusBadge } from './StatusBadge'
+import { useRole } from '../hooks/useRole'
 import { apiFetchJson, OBLIGATION_API_BASE_URL } from '../lib/apiClient'
 import type { ObligationSummary } from '../types/api'
 
@@ -57,6 +58,7 @@ const IMPLEMENTER_FALLBACK = 'web-ui@reglens.local'
 
 export function ObligationDrawer({ obligationId, onClose, initialPanel }: ObligationDrawerProps) {
   const queryClient = useQueryClient()
+  const { canMarkImplemented } = useRole()
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const mappingsSectionRef = useRef<HTMLDivElement>(null)
   const impactSectionRef = useRef<HTMLDivElement>(null)
@@ -151,7 +153,7 @@ export function ObligationDrawer({ obligationId, onClose, initialPanel }: Obliga
                 {obligationQuery.isError ? (
                   <StatusBadge label="Failed to load" tone="risk" />
                 ) : null}
-                {obligation?.status === 'MAPPED' ? (
+                {obligation?.status === 'MAPPED' && canMarkImplemented ? (
                   <button
                     type="button"
                     disabled={markImplementedMutation.isPending}

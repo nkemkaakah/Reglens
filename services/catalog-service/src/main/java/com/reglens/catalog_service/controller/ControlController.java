@@ -8,6 +8,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -62,6 +63,7 @@ public class ControlController {
 
 	@PostMapping
 	@ResponseStatus(HttpStatus.CREATED)
+	@PreAuthorize("hasRole('RISK_CONTROL_MANAGER')")
 	@Operation(summary = "Create control")
 	public ControlResponse create(@Valid @RequestBody ControlWriteRequest request) {
 		ControlResponse created = controlService.create(request);
@@ -70,6 +72,7 @@ public class ControlController {
 	}
 
 	@PutMapping("/{id}")
+	@PreAuthorize("hasRole('RISK_CONTROL_MANAGER')")
 	@Operation(summary = "Replace control")
 	public ControlResponse update(@PathVariable UUID id, @Valid @RequestBody ControlWriteRequest request) {
 		ControlResponse updated = controlService.update(id, request);

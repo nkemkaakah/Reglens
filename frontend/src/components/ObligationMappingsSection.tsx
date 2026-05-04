@@ -12,6 +12,7 @@ import {
   MAPPING_API_BASE_URL,
   OBLIGATION_API_BASE_URL,
 } from '../lib/apiClient'
+import { useRole } from '../hooks/useRole'
 import type {
   CatalogSystemRow,
   ControlCatalogRow,
@@ -42,6 +43,7 @@ function formatWhen(iso: string | null | undefined): string {
 
 export function ObligationMappingsSection({ obligationId }: ObligationMappingsSectionProps) {
   const queryClient = useQueryClient()
+  const { canIngest, canApproveMapping, canRejectMapping } = useRole()
   const [suggestions, setSuggestions] = useState<MappingSuggestion[]>([])
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(() => new Set())
   const [editingKey, setEditingKey] = useState<string | null>(null)
@@ -209,7 +211,7 @@ export function ObligationMappingsSection({ obligationId }: ObligationMappingsSe
 
   const toggleSelect = useCallback(
     (key: string, s: MappingSuggestion) => {
-      if (isAlreadyApproved(s)) return
+      if (isAlreadyApproved(s) || !canApproveMapping) return
       setSelectedKeys((prev) => {
         const next = new Set(prev)
         if (next.has(key)) next.delete(key)
@@ -227,6 +229,7 @@ export function ObligationMappingsSection({ obligationId }: ObligationMappingsSe
   }, [])
 
   const handleAcceptSelected = () => {
+    if (!canApproveMapping) return
     const byKey = new Map(suggestions.map((s) => [suggestionKey(s), s]))
     const controls: {
       controlId: string
@@ -284,17 +287,23 @@ export function ObligationMappingsSection({ obligationId }: ObligationMappingsSe
         ].join(' ')}
       >
         <div className="flex flex-wrap items-start gap-3">
-          <label className="mt-0.5 flex cursor-pointer items-center gap-2">
-            <input
-              type="checkbox"
-              className="h-4 w-4 rounded border-app-border disabled:cursor-not-allowed"
-              checked={checked}
-              disabled={approved}
-              onChange={() => toggleSelect(key, s)}
-            />
-            <StatusBadge label="AI Suggested" tone="ai" />
+          <div className="mt-0.5 flex items-center gap-2">
+            {canApproveMapping ? (
+              <label className="flex cursor-pointer items-center gap-2">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-app-border disabled:cursor-not-allowed"
+                  checked={checked}
+                  disabled={approved}
+                  onChange={() => toggleSelect(key, s)}
+                />
+                <StatusBadge label="AI Suggested" tone="ai" />
+              </label>
+            ) : (
+              <StatusBadge label="AI Suggested" tone="ai" />
+            )}
             {approved ? <StatusBadge label="Already approved" tone="warning" /> : null}
-          </label>
+          </div>
           <div className="min-w-0 flex-1">
             <p className="font-medium text-app-text">{s.title}</p>
             <p className="mt-0.5 font-mono text-xs text-app-muted">
@@ -330,23 +339,27 @@ export function ObligationMappingsSection({ obligationId }: ObligationMappingsSe
               <p className="mt-2 leading-relaxed text-app-text">{s.explanation}</p>
             )}
             <div className="mt-3 flex flex-wrap gap-2">
-              <button
-                type="button"
-                className="rounded-md border border-app-border bg-app-surface px-3 py-1.5 text-xs font-medium text-app-text transition hover:bg-app-subtle"
-                onClick={() => setEditingKey((k) => (k === key ? null : key))}
-              >
-                {editing ? 'Done editing' : 'Edit explanation'}
-              </button>
-              <button
-                type="button"
-                className="rounded-md border border-status-risk/40 px-3 py-1.5 text-xs font-medium text-status-risk transition hover:bg-status-risk-soft"
-                onClick={() => {
-                  setRejectTarget(s)
-                  setRejectReason('')
-                }}
-              >
-                Reject…
-              </button>
+              {canApproveMapping ? (
+                <button
+                  type="button"
+                  className="rounded-md border border-app-border bg-app-surface px-3 py-1.5 text-xs font-medium text-app-text transition hover:bg-app-subtle"
+                  onClick={() => setEditingKey((k) => (k === key ? null : key))}
+                >
+                  {editing ? 'Done editing' : 'Edit explanation'}
+                </button>
+              ) : null}
+              {canRejectMapping ? (
+                <button
+                  type="button"
+                  className="rounded-md border border-status-risk/40 px-3 py-1.5 text-xs font-medium text-status-risk transition hover:bg-status-risk-soft"
+                  onClick={() => {
+                    setRejectTarget(s)
+                    setRejectReason('')
+                  }}
+                >
+                  Reject…
+                </button>
+              ) : null}
             </div>
           </div>
         </div>
@@ -366,15 +379,22 @@ export function ObligationMappingsSection({ obligationId }: ObligationMappingsSe
             apply.
           </p>
         </div>
-        <button
-          type="button"
-          className="shrink-0 rounded-md bg-brand px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-60"
-          disabled={suggestMutation.isPending}
-          onClick={() => suggestMutation.mutate()}
-        >
-          {suggestMutation.isPending ? 'Suggesting…' : 'Suggest mappings'}
-        </button>
+        {canIngest ? (
+          <button
+            type="button"
+            className="shrink-0 rounded-md bg-brand px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={suggestMutation.isPending}
+            onClick={() => suggestMutation.mutate()}
+          >
+            {suggestMutation.isPending ? 'Suggesting…' : 'Suggest mappings'}
+          </button>
+        ) : null}
       </div>
+      {!canIngest ? (
+        <p className="mt-3 text-xs text-app-muted">
+          Suggestions and approvals are restricted to Compliance Officers.
+        </p>
+      ) : null}
 
       {suggestMutation.isError ? (
         <p className="mt-4 rounded-lg border border-status-risk/35 bg-status-risk-soft px-4 py-3 text-sm text-status-risk">
@@ -497,32 +517,36 @@ export function ObligationMappingsSection({ obligationId }: ObligationMappingsSe
                 </div>
               </div>
 
-              <div className="mt-5 flex flex-col gap-3 border-t border-app-border pt-5 sm:flex-row sm:items-end">
-                <label className="block min-w-0 flex-1 text-xs text-app-muted">
-                  <span className="font-semibold uppercase tracking-wide text-app-muted">
-                    Reviewer name
-                  </span>
-                  <input
-                    type="text"
-                    className="mt-1.5 w-full rounded-md border border-app-border bg-app-subtle px-3 py-2 text-sm text-app-text"
-                    value={reviewerBy}
-                    onChange={(e) => setReviewerBy(e.target.value)}
-                    autoComplete="name"
-                  />
-                </label>
-                <button
-                  type="button"
-                  className="shrink-0 rounded-md bg-status-success px-4 py-2 text-sm font-medium text-white transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
-                  disabled={
-                    acceptMutation.isPending ||
-                    selectedKeys.size === 0 ||
-                    !reviewerBy.trim()
-                  }
-                  onClick={handleAcceptSelected}
-                >
-                  {acceptMutation.isPending ? 'Saving…' : 'Accept selected'}
-                </button>
-              </div>
+              {canApproveMapping || canRejectMapping ? (
+                <div className="mt-5 flex flex-col gap-3 border-t border-app-border pt-5 sm:flex-row sm:items-end">
+                  <label className="block min-w-0 flex-1 text-xs text-app-muted">
+                    <span className="font-semibold uppercase tracking-wide text-app-muted">
+                      Reviewer name
+                    </span>
+                    <input
+                      type="text"
+                      className="mt-1.5 w-full rounded-md border border-app-border bg-app-subtle px-3 py-2 text-sm text-app-text"
+                      value={reviewerBy}
+                      onChange={(e) => setReviewerBy(e.target.value)}
+                      autoComplete="name"
+                    />
+                  </label>
+                  {canApproveMapping ? (
+                    <button
+                      type="button"
+                      className="shrink-0 rounded-md bg-status-success px-4 py-2 text-sm font-medium text-white transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
+                      disabled={
+                        acceptMutation.isPending ||
+                        selectedKeys.size === 0 ||
+                        !reviewerBy.trim()
+                      }
+                      onClick={handleAcceptSelected}
+                    >
+                      {acceptMutation.isPending ? 'Saving…' : 'Accept selected'}
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
             </>
           )}
         </div>

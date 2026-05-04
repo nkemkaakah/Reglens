@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AiSystemDetailDrawer } from '../components/AiSystemDetailDrawer'
 import { EmptyState } from '../components/EmptyState'
+import { useRole } from '../hooks/useRole'
 import { StatusBadge } from '../components/StatusBadge'
 import { AI_REGISTRY_API_BASE_URL, apiFetchJson, CATALOG_API_BASE_URL } from '../lib/apiClient'
 import { buildAiSystemWriteBody } from '../lib/aiSystemForm'
@@ -41,6 +42,7 @@ function formatDate(value: string | null | undefined): string {
 
 export function AiRegistryPage() {
   const queryClient = useQueryClient()
+  const { canManageAiRegistry } = useRole()
   const [filters, setFilters] = useState<Filters>({
     businessDomain: '',
     riskRating: '',
@@ -154,14 +156,21 @@ export function AiRegistryPage() {
               A record of every AI system at Nexus Bank - who owns it, what governs it, and which regulations apply.
             </p>
           </div>
-          <button
-            type="button"
-            className="rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-hover"
-            onClick={openRegister}
-          >
-            Register new system
-          </button>
+          {canManageAiRegistry ? (
+            <button
+              type="button"
+              className="rounded-md bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-hover"
+              onClick={openRegister}
+            >
+              Register new system
+            </button>
+          ) : null}
         </div>
+        {!canManageAiRegistry ? (
+          <p className="mt-3 text-xs text-app-muted">
+            Registry updates are restricted to AI Governance Lead.
+          </p>
+        ) : null}
       </div>
 
       <div className="rounded-lg border border-app-border bg-app-surface p-6">

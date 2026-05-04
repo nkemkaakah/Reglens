@@ -1,6 +1,7 @@
 import { useMutation } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { EmptyState } from '../components/EmptyState'
+import { useRole } from '../hooks/useRole'
 import { StatusBadge } from '../components/StatusBadge'
 import {
   apiUploadForm,
@@ -54,6 +55,7 @@ function formatDateTime(value: string | null | undefined): string {
 }
 
 export function IngestionPage() {
+  const { canIngest } = useRole()
   const [file, setFile] = useState<File | null>(null)
   const [form, setForm] = useState<FormState>({
     regulator: 'FCA',
@@ -132,14 +134,15 @@ export function IngestionPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[420px_1fr]">
         <div className="rounded-lg border border-app-border bg-app-surface p-6">
           <h3 className="text-sm font-semibold tracking-tight">New ingest</h3>
-          <form
-            className="mt-4 space-y-4"
-            onSubmit={(e) => {
-              e.preventDefault()
-              if (!canSubmit || mutation.isPending) return
-              mutation.mutate()
-            }}
-          >
+          {canIngest ? (
+            <form
+              className="mt-4 space-y-4"
+              onSubmit={(e) => {
+                e.preventDefault()
+                if (!canSubmit || mutation.isPending) return
+                mutation.mutate()
+              }}
+            >
             <label className="block">
               <span className="text-xs font-medium text-app-muted">File (optional)</span>
               <input
@@ -208,19 +211,24 @@ export function IngestionPage() {
               </div>
             ) : null}
 
-            <button
-              type="submit"
-              disabled={!canSubmit || mutation.isPending}
-              className={[
-                'inline-flex w-full items-center justify-center rounded-md px-3 py-2 text-sm font-medium transition',
-                !canSubmit || mutation.isPending
-                  ? 'cursor-not-allowed bg-app-subtle text-app-muted'
-                  : 'bg-brand text-white hover:bg-brand-hover',
-              ].join(' ')}
-            >
-              {mutation.isPending ? 'Ingesting…' : 'Ingest document'}
-            </button>
-          </form>
+              <button
+                type="submit"
+                disabled={!canSubmit || mutation.isPending}
+                className={[
+                  'inline-flex w-full items-center justify-center rounded-md px-3 py-2 text-sm font-medium transition',
+                  !canSubmit || mutation.isPending
+                    ? 'cursor-not-allowed bg-app-subtle text-app-muted'
+                    : 'bg-brand text-white hover:bg-brand-hover',
+                ].join(' ')}
+              >
+                {mutation.isPending ? 'Ingesting…' : 'Ingest document'}
+              </button>
+            </form>
+          ) : (
+            <p className="mt-4 rounded-md border border-app-border bg-app-subtle p-3 text-sm text-app-muted">
+              You have read-only access here. Document ingestion is restricted to Compliance Officers.
+            </p>
+          )}
         </div>
 
         <div className="space-y-6">

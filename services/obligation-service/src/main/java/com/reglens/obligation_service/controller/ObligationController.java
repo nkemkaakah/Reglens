@@ -11,6 +11,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -105,6 +106,7 @@ public class ObligationController {
 	 */
 	@PostMapping("/obligations")
 	@ResponseStatus(HttpStatus.CREATED)
+	@PreAuthorize("hasRole('COMPLIANCE_OFFICER')")
 	@Operation(summary = "Create one obligation")
 	public ObligationResponse create(@Valid @RequestBody ObligationRequest request) {
 		ObligationResponse created = obligationService.create(request);
@@ -122,6 +124,7 @@ public class ObligationController {
 	 */
 	@PostMapping("/obligations/{id}/mapping-suggest-started")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
+	@PreAuthorize("hasRole('COMPLIANCE_OFFICER')")
 	@Operation(summary = "Record that suggest-mappings was started (UNMAPPED → IN_PROGRESS)")
 	public void mappingSuggestStarted(@PathVariable("id") UUID id) {
 		obligationService.onMappingSuggestStarted(id);
@@ -132,6 +135,7 @@ public class ObligationController {
 	 * Manual workflow transition — currently only {@code IMPLEMENTED} from {@code MAPPED}.
 	 */
 	@PatchMapping("/obligations/{id}/status")
+	@PreAuthorize("hasAnyRole('COMPLIANCE_OFFICER', 'RISK_CONTROL_MANAGER')")
 	@Operation(summary = "Update obligation workflow status")
 	public ObligationResponse patchStatus(
 			@PathVariable("id") UUID id,
@@ -147,6 +151,7 @@ public class ObligationController {
 	 */
 	@PostMapping("/obligations/batch")
 	@ResponseStatus(HttpStatus.CREATED)
+	@PreAuthorize("hasRole('COMPLIANCE_OFFICER')")
 	@Operation(summary = "Bulk create obligations")
 	public List<ObligationResponse> createBatch(@Valid @RequestBody List<ObligationRequest> requests) {
 		List<ObligationResponse> created = obligationService.createAll(requests);

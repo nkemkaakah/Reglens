@@ -8,6 +8,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -65,6 +66,7 @@ public class AiSystemController {
 
 	@PostMapping
 	@ResponseStatus(HttpStatus.CREATED)
+	@PreAuthorize("hasRole('AI_GOVERNANCE_LEAD')")
 	@Operation(summary = "Register a new AI system (requires service bearer token)")
 	public AiSystemDetailResponse create(@Valid @RequestBody AiSystemWriteRequest request) {
 		AiSystemDetailResponse created = aiSystemService.create(request);
@@ -73,6 +75,7 @@ public class AiSystemController {
 	}
 
 	@PutMapping("/{id}")
+	@PreAuthorize("hasRole('AI_GOVERNANCE_LEAD')")
 	@Operation(summary = "Replace an AI system (requires service bearer token)")
 	public AiSystemDetailResponse update(@PathVariable UUID id, @Valid @RequestBody AiSystemWriteRequest request) {
 		AiSystemDetailResponse updated = aiSystemService.update(id, request);

@@ -1,4 +1,4 @@
-import { Router } from 'express'
+import { Router, type Request } from 'express'
 import { ZodError, z } from 'zod'
 import { randomUUID } from 'node:crypto'
 import * as obligationClient from '../clients/obligationClient.js'
@@ -8,6 +8,14 @@ import { runSuggestMappings } from '../llm/suggestMappings.js'
 import { log } from '../log.js'
 
 const router = Router()
+const COMPLIANCE_OFFICER = 'COMPLIANCE_OFFICER'
+const RISK_CONTROL_MANAGER = 'RISK_CONTROL_MANAGER'
+
+function hasRole(req: Request, allowedRoles: string[]): boolean {
+  const roleHeader = req.headers['x-user-role']
+  const role = Array.isArray(roleHeader) ? roleHeader[0] : roleHeader
+  return Boolean(role && allowedRoles.includes(role))
+}
 
 const MappingRejectionBodySchema = z.object({
   catalogueKind: z.enum(['control', 'system']),
@@ -48,6 +56,10 @@ const ApproveMappingsBodySchema = z.object({
  * PRD Feature 4 — LLM proposes candidate controls/systems; nothing is persisted here.
  */
 router.post('/:obligationId/suggest-mappings', async (req, res, next) => {
+  if (!hasRole(req, [COMPLIANCE_OFFICER])) {
+    res.status(403).json({ error: 'Forbidden', detail: 'COMPLIANCE_OFFICER role required' })
+    return
+  }
   const obligationId = req.params.obligationId
   const authorization = req.headers.authorization ?? ''
   try {
@@ -91,6 +103,10 @@ router.post('/:obligationId/suggest-mappings', async (req, res, next) => {
 
 /** Records a human rejection of a suggested candidate (obligation-service is source of truth). */
 router.post('/:obligationId/mapping-rejections', async (req, res, next) => {
+  if (!hasRole(req, [COMPLIANCE_OFFICER, RISK_CONTROL_MANAGER])) {
+    res.status(403).json({ error: 'Forbidden', detail: 'COMPLIANCE_OFFICER or RISK_CONTROL_MANAGER role required' })
+    return
+  }
   const obligationId = req.params.obligationId
   const authorization = req.headers.authorization ?? ''
   try {
@@ -115,6 +131,10 @@ router.post('/:obligationId/mapping-rejections', async (req, res, next) => {
  * PRD Feature 4 — persists approved rows via obligation-service, then emits {@code obligation.mapped}.
  */
 router.post('/:obligationId/mappings', async (req, res, next) => {
+  if (!hasRole(req, [COMPLIANCE_OFFICER])) {
+    res.status(403).json({ error: 'Forbidden', detail: 'COMPLIANCE_OFFICER role required' })
+    return
+  }
   const obligationId = req.params.obligationId
   const authorization = req.headers.authorization ?? ''
   try {

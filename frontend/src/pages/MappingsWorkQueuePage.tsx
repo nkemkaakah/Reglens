@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { EmptyState } from '../components/EmptyState'
+import { useRole } from '../hooks/useRole'
 import { StatusBadge } from '../components/StatusBadge'
 import { apiFetchJson, OBLIGATION_API_BASE_URL } from '../lib/apiClient'
 import type { ObligationStatus, Page, RiskRating, ObligationSummary } from '../types/api'
@@ -47,6 +48,7 @@ function toneForRisk(risk: ObligationSummary['riskRating']): Parameters<typeof S
 
 export function MappingsWorkQueuePage() {
   const navigate = useNavigate()
+  const { canIngest } = useRole()
   const [filters, setFilters] = useState<Filters>({
     riskRating: '',
     regulator: '',
@@ -151,6 +153,11 @@ export function MappingsWorkQueuePage() {
             />
           </label>
         </div>
+        {!canIngest ? (
+          <p className="mt-3 text-xs text-app-muted">
+            You can review queue items, but only Compliance Officers can run suggestions and approvals.
+          </p>
+        ) : null}
       </div>
 
       {obligationsQuery.isLoading ? (
@@ -208,7 +215,7 @@ export function MappingsWorkQueuePage() {
                         className="rounded-md bg-brand px-3 py-2 text-xs font-medium text-white transition hover:bg-brand-hover"
                         onClick={() => openInExplorer(ob.id)}
                       >
-                        Suggest &amp; review
+                        Review
                       </button>
                     </td>
                   </tr>

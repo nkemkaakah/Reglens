@@ -8,6 +8,7 @@ import {
   CATALOG_API_BASE_URL,
 } from '../lib/apiClient'
 import { aiSystemDetailToFormFields, buildAiSystemWriteBody } from '../lib/aiSystemForm'
+import { useRole } from '../hooks/useRole'
 import type {
   AiSystemDetail,
   AiSystemDocumentDetail,
@@ -51,6 +52,7 @@ function formatDate(value: string | null | undefined): string {
 
 export function AiSystemDetailDrawer({ aiSystemId, onClose }: AiSystemDetailDrawerProps) {
   const queryClient = useQueryClient()
+  const { canManageAiRegistry } = useRole()
   const [docViewerId, setDocViewerId] = useState<string | null>(null)
   const [showAddDoc, setShowAddDoc] = useState(false)
   const [newDocTitle, setNewDocTitle] = useState('')
@@ -262,7 +264,7 @@ export function AiSystemDetailDrawer({ aiSystemId, onClose }: AiSystemDetailDraw
               </div>
             </div>
             <div className="flex shrink-0 flex-wrap items-center gap-2">
-              {detail && !detailQuery.isError ? (
+              {canManageAiRegistry && detail && !detailQuery.isError ? (
                 isEditing ? (
                   <button
                     type="button"
@@ -661,15 +663,17 @@ export function AiSystemDetailDrawer({ aiSystemId, onClose }: AiSystemDetailDraw
                   <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-app-muted">
                     Governance documents
                   </p>
-                  <button
-                    type="button"
-                    className="rounded-md border border-app-border px-3 py-1.5 text-xs font-semibold text-app-text hover:bg-app-subtle"
-                    onClick={() => setShowAddDoc((v) => !v)}
-                  >
-                    {showAddDoc ? 'Cancel' : 'Add document'}
-                  </button>
+                  {canManageAiRegistry ? (
+                    <button
+                      type="button"
+                      className="rounded-md border border-app-border px-3 py-1.5 text-xs font-semibold text-app-text hover:bg-app-subtle"
+                      onClick={() => setShowAddDoc((v) => !v)}
+                    >
+                      {showAddDoc ? 'Cancel' : 'Add document'}
+                    </button>
+                  ) : null}
                 </div>
-                {showAddDoc ? (
+                {canManageAiRegistry && showAddDoc ? (
                   <form
                     className="mt-4 space-y-3 rounded-lg border border-app-border bg-app-subtle p-4"
                     onSubmit={(e) => {

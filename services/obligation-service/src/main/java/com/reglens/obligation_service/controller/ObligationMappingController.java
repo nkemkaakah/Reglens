@@ -11,6 +11,7 @@ import com.reglens.obligation_service.service.MappingService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -41,6 +42,7 @@ public class ObligationMappingController {
 	}
 
 	@PostMapping("/obligations/{id}/mappings/controls")
+	@PreAuthorize("hasRole('COMPLIANCE_OFFICER')")
 	@Operation(summary = "Upsert control mappings for an obligation (requires service bearer token)")
 	public List<ControlMappingRow> upsertControlMappings(
 			@PathVariable("id") UUID obligationId,
@@ -50,6 +52,7 @@ public class ObligationMappingController {
 	}
 
 	@PostMapping("/obligations/{id}/mappings/systems")
+	@PreAuthorize("hasRole('COMPLIANCE_OFFICER')")
 	@Operation(summary = "Upsert system mappings for an obligation (requires service bearer token)")
 	public List<SystemMappingRow> upsertSystemMappings(
 			@PathVariable("id") UUID obligationId,
@@ -59,6 +62,7 @@ public class ObligationMappingController {
 	}
 
 	@PostMapping("/obligations/{id}/mapping-rejections")
+	@PreAuthorize("hasAnyRole('COMPLIANCE_OFFICER', 'RISK_CONTROL_MANAGER')")
 	@Operation(summary = "Record rejection of a suggested mapping candidate (requires service bearer token)")
 	public MappingRejectionRow recordMappingRejection(
 			@PathVariable("id") UUID obligationId,
