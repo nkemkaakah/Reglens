@@ -25,6 +25,9 @@ export const AI_REGISTRY_API_BASE_URL =
 export const WORKFLOW_API_BASE_URL =
   import.meta.env.VITE_WORKFLOW_API_URL ?? `${apiGatewayBase}/workflow`
 
+export const NOTIFICATION_API_BASE_URL =
+  import.meta.env.VITE_NOTIFICATION_API_URL ?? `${apiGatewayBase}/notification`
+
 type ApiError = Error & { status?: number; body?: string }
 
 async function parseError(response: Response): Promise<ApiError> {
@@ -65,6 +68,32 @@ export async function apiFetchJson<T>(
 
   console.log('[RegLens] fetch ok', response.status, url, `${elapsedMs}ms`)
   return (await response.json()) as T
+}
+
+export async function apiFetchNoContent(
+  baseUrl: string,
+  path: string,
+  init: RequestInit = {},
+): Promise<void> {
+  const url = `${baseUrl}${path}`
+  const started = performance.now()
+  console.log('[RegLens] fetch', init.method ?? 'GET', url)
+  const response = await fetch(url, {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      ...getAuthHeaders(),
+      ...(init.headers ?? {}),
+    },
+  })
+
+  const elapsedMs = Math.round(performance.now() - started)
+  if (!response.ok) {
+    console.warn('[RegLens] fetch failed', response.status, url, `${elapsedMs}ms`)
+    throw await parseError(response)
+  }
+
+  console.log('[RegLens] fetch ok', response.status, url, `${elapsedMs}ms`)
 }
 
 export async function apiUploadForm<T>(
