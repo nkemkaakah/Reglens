@@ -51,7 +51,7 @@ public class AiSystemDocumentController {
 	}
 
 	@PostMapping
-	@PreAuthorize("hasRole('AI_GOVERNANCE_LEAD')")
+	@PreAuthorize("hasAnyRole('AI_GOVERNANCE_LEAD', 'ADMIN')")
 	@ResponseStatus(HttpStatus.CREATED)
 	@Operation(summary = "Store a governance document (requires service bearer token)")
 	public AiSystemDocumentDetailResponse create(

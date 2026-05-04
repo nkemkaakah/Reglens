@@ -10,6 +10,7 @@ import { log } from '../log.js'
 const router = Router()
 const COMPLIANCE_OFFICER = 'COMPLIANCE_OFFICER'
 const RISK_CONTROL_MANAGER = 'RISK_CONTROL_MANAGER'
+const ADMIN = 'ADMIN'
 
 function hasRole(req: Request, allowedRoles: string[]): boolean {
   const roleHeader = req.headers['x-user-role']
@@ -56,8 +57,8 @@ const ApproveMappingsBodySchema = z.object({
  * PRD Feature 4 — LLM proposes candidate controls/systems; nothing is persisted here.
  */
 router.post('/:obligationId/suggest-mappings', async (req, res, next) => {
-  if (!hasRole(req, [COMPLIANCE_OFFICER])) {
-    res.status(403).json({ error: 'Forbidden', detail: 'COMPLIANCE_OFFICER role required' })
+  if (!hasRole(req, [COMPLIANCE_OFFICER, ADMIN])) {
+    res.status(403).json({ error: 'Forbidden', detail: 'COMPLIANCE_OFFICER or ADMIN role required' })
     return
   }
   const obligationId = req.params.obligationId
@@ -103,8 +104,11 @@ router.post('/:obligationId/suggest-mappings', async (req, res, next) => {
 
 /** Records a human rejection of a suggested candidate (obligation-service is source of truth). */
 router.post('/:obligationId/mapping-rejections', async (req, res, next) => {
-  if (!hasRole(req, [COMPLIANCE_OFFICER, RISK_CONTROL_MANAGER])) {
-    res.status(403).json({ error: 'Forbidden', detail: 'COMPLIANCE_OFFICER or RISK_CONTROL_MANAGER role required' })
+  if (!hasRole(req, [COMPLIANCE_OFFICER, RISK_CONTROL_MANAGER, ADMIN])) {
+    res.status(403).json({
+      error: 'Forbidden',
+      detail: 'COMPLIANCE_OFFICER, RISK_CONTROL_MANAGER, or ADMIN role required',
+    })
     return
   }
   const obligationId = req.params.obligationId
@@ -131,8 +135,8 @@ router.post('/:obligationId/mapping-rejections', async (req, res, next) => {
  * PRD Feature 4 — persists approved rows via obligation-service, then emits {@code obligation.mapped}.
  */
 router.post('/:obligationId/mappings', async (req, res, next) => {
-  if (!hasRole(req, [COMPLIANCE_OFFICER])) {
-    res.status(403).json({ error: 'Forbidden', detail: 'COMPLIANCE_OFFICER role required' })
+  if (!hasRole(req, [COMPLIANCE_OFFICER, ADMIN])) {
+    res.status(403).json({ error: 'Forbidden', detail: 'COMPLIANCE_OFFICER or ADMIN role required' })
     return
   }
   const obligationId = req.params.obligationId

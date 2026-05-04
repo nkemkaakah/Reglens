@@ -42,7 +42,7 @@ public class ObligationMappingController {
 	}
 
 	@PostMapping("/obligations/{id}/mappings/controls")
-	@PreAuthorize("hasRole('COMPLIANCE_OFFICER')")
+	@PreAuthorize("hasAnyRole('COMPLIANCE_OFFICER', 'ADMIN')")
 	@Operation(summary = "Upsert control mappings for an obligation (requires service bearer token)")
 	public List<ControlMappingRow> upsertControlMappings(
 			@PathVariable("id") UUID obligationId,
@@ -52,7 +52,7 @@ public class ObligationMappingController {
 	}
 
 	@PostMapping("/obligations/{id}/mappings/systems")
-	@PreAuthorize("hasRole('COMPLIANCE_OFFICER')")
+	@PreAuthorize("hasAnyRole('COMPLIANCE_OFFICER', 'ADMIN')")
 	@Operation(summary = "Upsert system mappings for an obligation (requires service bearer token)")
 	public List<SystemMappingRow> upsertSystemMappings(
 			@PathVariable("id") UUID obligationId,
@@ -62,7 +62,7 @@ public class ObligationMappingController {
 	}
 
 	@PostMapping("/obligations/{id}/mapping-rejections")
-	@PreAuthorize("hasAnyRole('COMPLIANCE_OFFICER', 'RISK_CONTROL_MANAGER')")
+	@PreAuthorize("hasAnyRole('COMPLIANCE_OFFICER', 'RISK_CONTROL_MANAGER', 'ADMIN')")
 	@Operation(summary = "Record rejection of a suggested mapping candidate (requires service bearer token)")
 	public MappingRejectionRow recordMappingRejection(
 			@PathVariable("id") UUID obligationId,

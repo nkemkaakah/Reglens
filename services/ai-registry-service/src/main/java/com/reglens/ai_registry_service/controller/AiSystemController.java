@@ -66,7 +66,7 @@ public class AiSystemController {
 
 	@PostMapping
 	@ResponseStatus(HttpStatus.CREATED)
-	@PreAuthorize("hasRole('AI_GOVERNANCE_LEAD')")
+	@PreAuthorize("hasAnyRole('AI_GOVERNANCE_LEAD', 'ADMIN')")
 	@Operation(summary = "Register a new AI system (requires service bearer token)")
 	public AiSystemDetailResponse create(@Valid @RequestBody AiSystemWriteRequest request) {
 		AiSystemDetailResponse created = aiSystemService.create(request);
@@ -75,7 +75,7 @@ public class AiSystemController {
 	}
 
 	@PutMapping("/{id}")
-	@PreAuthorize("hasRole('AI_GOVERNANCE_LEAD')")
+	@PreAuthorize("hasAnyRole('AI_GOVERNANCE_LEAD', 'ADMIN')")
 	@Operation(summary = "Replace an AI system (requires service bearer token)")
 	public AiSystemDetailResponse update(@PathVariable UUID id, @Valid @RequestBody AiSystemWriteRequest request) {
 		AiSystemDetailResponse updated = aiSystemService.update(id, request);

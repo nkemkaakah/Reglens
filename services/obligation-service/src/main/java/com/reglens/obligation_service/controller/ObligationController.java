@@ -106,7 +106,7 @@ public class ObligationController {
 	 */
 	@PostMapping("/obligations")
 	@ResponseStatus(HttpStatus.CREATED)
-	@PreAuthorize("hasRole('COMPLIANCE_OFFICER')")
+	@PreAuthorize("hasAnyRole('COMPLIANCE_OFFICER', 'ADMIN')")
 	@Operation(summary = "Create one obligation")
 	public ObligationResponse create(@Valid @RequestBody ObligationRequest request) {
 		ObligationResponse created = obligationService.create(request);
@@ -124,7 +124,7 @@ public class ObligationController {
 	 */
 	@PostMapping("/obligations/{id}/mapping-suggest-started")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
-	@PreAuthorize("hasRole('COMPLIANCE_OFFICER')")
+	@PreAuthorize("hasAnyRole('COMPLIANCE_OFFICER', 'ADMIN')")
 	@Operation(summary = "Record that suggest-mappings was started (UNMAPPED → IN_PROGRESS)")
 	public void mappingSuggestStarted(@PathVariable("id") UUID id) {
 		obligationService.onMappingSuggestStarted(id);
@@ -135,7 +135,7 @@ public class ObligationController {
 	 * Manual workflow transition — currently only {@code IMPLEMENTED} from {@code MAPPED}.
 	 */
 	@PatchMapping("/obligations/{id}/status")
-	@PreAuthorize("hasAnyRole('COMPLIANCE_OFFICER', 'RISK_CONTROL_MANAGER')")
+	@PreAuthorize("hasAnyRole('COMPLIANCE_OFFICER', 'RISK_CONTROL_MANAGER', 'ADMIN')")
 	@Operation(summary = "Update obligation workflow status")
 	public ObligationResponse patchStatus(
 			@PathVariable("id") UUID id,
@@ -151,7 +151,7 @@ public class ObligationController {
 	 */
 	@PostMapping("/obligations/batch")
 	@ResponseStatus(HttpStatus.CREATED)
-	@PreAuthorize("hasRole('COMPLIANCE_OFFICER')")
+	@PreAuthorize("hasAnyRole('COMPLIANCE_OFFICER', 'ADMIN')")
 	@Operation(summary = "Bulk create obligations")
 	public List<ObligationResponse> createBatch(@Valid @RequestBody List<ObligationRequest> requests) {
 		List<ObligationResponse> created = obligationService.createAll(requests);

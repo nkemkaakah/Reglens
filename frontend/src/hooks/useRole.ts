@@ -2,6 +2,7 @@ import { useAuth } from './useAuth'
 
 export function useRole() {
   const { role } = useAuth()
+  const isAdmin = role === 'ADMIN'
   const isComplianceOfficer = role === 'COMPLIANCE_OFFICER'
   const isRiskControlManager = role === 'RISK_CONTROL_MANAGER'
   const isTechnologyLead = role === 'TECHNOLOGY_LEAD'
@@ -9,20 +10,19 @@ export function useRole() {
 
   return {
     role,
+    isAdmin,
     isComplianceOfficer,
     isRiskControlManager,
     isTechnologyLead,
     isAiGovernanceLead,
-    canEdit: isComplianceOfficer || isRiskControlManager,
-    canIngest: isComplianceOfficer,
-    canManageAiRegistry: isAiGovernanceLead,
-    canApproveMapping: isComplianceOfficer,
-    canRejectMapping: isComplianceOfficer || isRiskControlManager,
-    canEditRiskRating: isRiskControlManager,
-    canEditControls: isRiskControlManager,
-    canAcknowledgeTask: isTechnologyLead,
-    canMarkImplemented: isComplianceOfficer,
+    canEdit: isAdmin || isComplianceOfficer || isRiskControlManager,
+    canIngest: isAdmin || isComplianceOfficer,
+    canManageAiRegistry: isAdmin || isAiGovernanceLead,
+    canApproveMapping: isAdmin || isComplianceOfficer,
+    canRejectMapping: isAdmin || isComplianceOfficer || isRiskControlManager,
+    canEditRiskRating: isAdmin || isRiskControlManager,
+    canEditControls: isAdmin || isRiskControlManager,
+    canAcknowledgeTask: isAdmin || isTechnologyLead,
+    canMarkImplemented: isAdmin || isComplianceOfficer,
   }
 }
-
-

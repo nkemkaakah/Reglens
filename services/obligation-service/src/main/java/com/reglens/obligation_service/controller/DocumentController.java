@@ -70,7 +70,7 @@ public class DocumentController {
 	 * (with service token) before posting obligations.
 	 */
 	@PostMapping
-	@PreAuthorize("hasRole('COMPLIANCE_OFFICER')")
+	@PreAuthorize("hasAnyRole('COMPLIANCE_OFFICER', 'ADMIN')")
 	@ResponseStatus(HttpStatus.CREATED)
 	@Operation(summary = "Register an ingested document")
 	public DocumentResponse create(@Valid @RequestBody DocumentRequest request) {

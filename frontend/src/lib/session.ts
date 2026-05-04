@@ -1,6 +1,7 @@
 import { TOKEN_STORAGE_KEY } from './auth'
 
 export type UserRole =
+  | 'ADMIN'
   | 'COMPLIANCE_OFFICER'
   | 'RISK_CONTROL_MANAGER'
   | 'TECHNOLOGY_LEAD'
@@ -58,6 +59,14 @@ const personas: Persona[] = [
     role: 'AI_GOVERNANCE_LEAD',
     title: 'AI Governance Lead',
     summary: 'Manages the AI registry and governance controls for AI systems.',
+  },
+  {
+    sub: 'admin-001',
+    name: 'Nkemka',
+    email: 'nkemka@nkemka.dev',
+    role: 'ADMIN',
+    title: 'Administrator',
+    summary: 'Full access to all operations across the platform.',
   },
 ]
 

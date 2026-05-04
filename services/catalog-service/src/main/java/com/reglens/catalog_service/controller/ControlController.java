@@ -63,7 +63,7 @@ public class ControlController {
 
 	@PostMapping
 	@ResponseStatus(HttpStatus.CREATED)
-	@PreAuthorize("hasRole('RISK_CONTROL_MANAGER')")
+	@PreAuthorize("hasAnyRole('RISK_CONTROL_MANAGER', 'ADMIN')")
 	@Operation(summary = "Create control")
 	public ControlResponse create(@Valid @RequestBody ControlWriteRequest request) {
 		ControlResponse created = controlService.create(request);
@@ -72,7 +72,7 @@ public class ControlController {
 	}
 
 	@PutMapping("/{id}")
-	@PreAuthorize("hasRole('RISK_CONTROL_MANAGER')")
+	@PreAuthorize("hasAnyRole('RISK_CONTROL_MANAGER', 'ADMIN')")
 	@Operation(summary = "Replace control")
 	public ControlResponse update(@PathVariable UUID id, @Valid @RequestBody ControlWriteRequest request) {
 		ControlResponse updated = controlService.update(id, request);

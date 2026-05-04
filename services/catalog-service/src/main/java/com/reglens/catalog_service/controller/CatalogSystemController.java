@@ -72,7 +72,7 @@ public class CatalogSystemController {
 
 	@PostMapping
 	@ResponseStatus(HttpStatus.CREATED)
-	@PreAuthorize("hasAnyRole('RISK_CONTROL_MANAGER', 'TECHNOLOGY_LEAD')")
+	@PreAuthorize("hasAnyRole('RISK_CONTROL_MANAGER', 'TECHNOLOGY_LEAD', 'ADMIN')")
 	@Operation(summary = "Create system")
 	public CatalogSystemResponse create(@Valid @RequestBody CatalogSystemWriteRequest request) {
 		CatalogSystemResponse created = catalogSystemService.create(request);
@@ -81,7 +81,7 @@ public class CatalogSystemController {
 	}
 
 	@PutMapping("/{id}")
-	@PreAuthorize("hasAnyRole('RISK_CONTROL_MANAGER', 'TECHNOLOGY_LEAD')")
+	@PreAuthorize("hasAnyRole('RISK_CONTROL_MANAGER', 'TECHNOLOGY_LEAD', 'ADMIN')")
 	@Operation(summary = "Replace system")
 	public CatalogSystemResponse update(@PathVariable UUID id, @Valid @RequestBody CatalogSystemWriteRequest request) {
 		CatalogSystemResponse updated = catalogSystemService.update(id, request);

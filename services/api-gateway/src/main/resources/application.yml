@@ -75,6 +75,12 @@ spring:
                 - Path=/ingestion/**
               filters:
                 - StripPrefix=1
+            - id: notification
+              uri: ${GATEWAY_UPSTREAM_NOTIFICATION:http://localhost:3001}
+              predicates:
+                - Path=/notification/**
+              filters:
+                - StripPrefix=1
 
 management:
   endpoints:
