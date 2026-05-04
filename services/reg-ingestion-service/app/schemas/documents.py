@@ -111,3 +111,23 @@ class IngestResponse(BaseModel):
     document: DocumentResponse
     obligations: list[ObligationResponse]
     obligation_count: int
+
+
+class IngestJobAccepted(BaseModel):
+    """Returned when an ingest is accepted for async processing."""
+
+    job_id: UUID
+    status: str
+    message: str
+
+
+class IngestJobStatus(BaseModel):
+    """Poll response for async ingest job state."""
+
+    job_id: UUID
+    status: str
+    document_id: UUID | None = None
+    obligation_count: int | None = None
+    error: str | None = None
+    created_at: str
+    completed_at: str | None = None

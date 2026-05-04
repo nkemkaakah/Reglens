@@ -7,6 +7,7 @@ obligation-service, runs text extraction + an LLM pass per chunk, then bulk-writ
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -23,10 +24,17 @@ from pypdf.errors import PdfReadError
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from urllib.parse import urlparse
 
-from app.api.deps import AnthropicClientDep, ObligationClientDep
+from app.api.deps import ObligationClientDep
 from app.core.config import LLM_MAX_OUTPUT_TOKENS, LLM_MODEL, settings
-from app.schemas.documents import DocumentCreate, IngestResponse, ObligationCreate, ObligationResponse
-from app.services.document_ingested_kafka import publish_document_ingested_sync
+from app.schemas.documents import (
+    DocumentCreate,
+    IngestJobAccepted,
+    IngestJobStatus,
+    ObligationCreate,
+    ObligationResponse,
+)
+from app.services.ingest_queue import publish_ingest_requested_sync
+from app.services.job_store import create_job, delete_job_keys, get_job
 from app.services.stub_pipeline import slug_document_ref_prefix
 
 logger = logging.getLogger(__name__)
@@ -381,6 +389,37 @@ async def collect_structured_obligations_from_source(
     return pairs
 
 
+def _enqueue_ingest_sync(
+    job_id: UUID,
+    source_bytes: bytes,
+    *,
+    source_label: str,
+    content_type: str | None,
+    ref: str,
+    title: str,
+    regulator: str,
+    doc_type: str | None,
+    source_url: str | None,
+    ingested_by: str | None,
+) -> None:
+    create_job(job_id, source_bytes)
+    try:
+        publish_ingest_requested_sync(
+            job_id=job_id,
+            source_label=source_label,
+            content_type=content_type,
+            ref=ref,
+            title=title,
+            regulator=regulator,
+            doc_type=doc_type,
+            source_url=source_url,
+            ingested_by=ingested_by,
+        )
+    except Exception:
+        delete_job_keys(job_id)
+        raise
+
+
 def map_collected_items_to_creates(
     *,
     document_id: UUID,
@@ -404,13 +443,11 @@ def map_collected_items_to_creates(
 
 @router.post(
     "",
-    response_model=IngestResponse,
-    status_code=status.HTTP_201_CREATED,
-    summary="Upload (or URL) + LLM obligation extraction",
+    response_model=IngestJobAccepted,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Queue document upload (or URL) for async LLM obligation extraction",
 )
 async def ingest_document(
-    client: ObligationClientDep,
-    anthropic_client: AnthropicClientDep,
     file: UploadFile | None = File(None, description="PDF or text file to ingest"),
     source_url: str | None = Form(None, description="Optional regulatory URL when no file is attached"),
     ref: str | None = Form(None, description="Stable document code — generated from filename if omitted"),
@@ -418,12 +455,18 @@ async def ingest_document(
     regulator: str | None = Form("FCA"),
     doc_type: str | None = Form(None),
     ingested_by: str | None = Form("reg-ingestion-service@reglens"),
-) -> IngestResponse:
+) -> IngestJobAccepted:
     """
     Accepts multipart form: optional `file`, optional `source_url`, plus metadata fields.
 
     At least one of `file` or `source_url` must be present.
     """
+    if not settings.kafka_enabled:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Async ingest requires Kafka — set KAFKA_BOOTSTRAP_SERVERS.",
+        )
+
     url_clean = _normalise_whitespace(source_url)
     if file is None and url_clean is None:
         raise HTTPException(
@@ -454,78 +497,83 @@ async def ingest_document(
     doc_ref = _normalise_whitespace(ref) or default_ref
     doc_title = _normalise_whitespace(title) or default_title
     reg = _normalise_whitespace(regulator) or "FCA"
+    ingested = _normalise_whitespace(ingested_by)
 
-    document_payload = DocumentCreate(
-        ref=doc_ref,
-        title=doc_title,
-        regulator=reg,
-        doc_type=_normalise_whitespace(doc_type),
-        url=url_clean,
-        ingested_by=_normalise_whitespace(ingested_by),
-    )
+    job_id = uuid4()
+    loop = asyncio.get_running_loop()
+    try:
+        await loop.run_in_executor(
+            None,
+            lambda: _enqueue_ingest_sync(
+                job_id,
+                source_body,
+                source_label=source_label,
+                content_type=content_type,
+                ref=doc_ref,
+                title=doc_title,
+                regulator=reg,
+                doc_type=_normalise_whitespace(doc_type),
+                source_url=url_clean,
+                ingested_by=ingested,
+            ),
+        )
+    except Exception as exc:  # noqa: BLE001 — surface broker/redis failures uniformly
+        logger.exception("ingest: enqueue failed job_id=%s", job_id)
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Could not queue ingest job: {exc}",
+        ) from exc
 
     logger.info(
-        "ingest: start has_file=%s has_url=%s ref=%s regulator=%s",
+        "ingest: queued job_id=%s has_file=%s has_url=%s ref=%s regulator=%s",
+        job_id,
         file is not None,
         bool(url_clean),
         doc_ref,
         reg,
     )
 
-    try:
-        structured_pairs = await collect_structured_obligations_from_source(
-            regulator=reg,
-            document_title=doc_title,
-            source_body=source_body,
-            source_label=source_label,
-            content_type=content_type,
-            anthropic_client=anthropic_client,
-        )
-        created_doc = await client.create_document(document_payload)
-        logger.info(
-            "ingest: document registered id=%s ref=%s (obligation rows to persist=%s)",
-            created_doc.id,
-            created_doc.ref,
-            len(structured_pairs),
-        )
-        obligation_rows = map_collected_items_to_creates(
-            document_id=created_doc.id,
-            document_ref=created_doc.ref,
-            pairs=structured_pairs,
-        )
-        created_obligations = await client.create_obligations_batch(obligation_rows)
-        try:
-            publish_document_ingested_sync(
-                document_id=created_doc.id,
-                obligation_ids=[o.id for o in created_obligations],
-                ingested_by=document_payload.ingested_by,
-            )
-        except Exception as kafka_exc:  # noqa: BLE001 — audit fan-out must not fail the ingest HTTP transaction
-            logger.warning(
-                "ingest: document.ingested Kafka publish failed document_id=%s: %s",
-                created_doc.id,
-                kafka_exc,
-            )
-    except httpx.HTTPStatusError as exc:
-        logger.error(
-            "ingest: obligation-service HTTP %s for %s",
-            exc.response.status_code,
-            exc.request.url,
-        )
-        detail = exc.response.text[:2000] if exc.response.text else exc.response.reason_phrase
-        raise HTTPException(status_code=exc.response.status_code, detail=detail) from exc
-
-    logger.info(
-        "ingest: complete document_id=%s ref=%s obligations=%s",
-        created_doc.id,
-        created_doc.ref,
-        len(created_obligations),
+    return IngestJobAccepted(
+        job_id=job_id,
+        status="PENDING",
+        message="Ingestion job accepted.",
     )
 
-    return IngestResponse(
-        document=created_doc,
-        obligations=created_obligations,
-        obligation_count=len(created_obligations),
+
+@router.get(
+    "/jobs/{job_id}",
+    response_model=IngestJobStatus,
+    summary="Poll async ingest job status",
+)
+async def get_ingest_job(job_id: UUID) -> IngestJobStatus:
+    loop = asyncio.get_running_loop()
+    row = await loop.run_in_executor(None, lambda jid=job_id: get_job(jid))
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Unknown ingest job.")
+
+    doc_raw = row.get("documentId")
+    oc_raw = row.get("obligationCount")
+    document_id: UUID | None = None
+    if doc_raw:
+        try:
+            document_id = UUID(doc_raw)
+        except ValueError:
+            document_id = None
+    obligation_count: int | None = None
+    if oc_raw not in (None, ""):
+        try:
+            obligation_count = int(oc_raw)
+        except ValueError:
+            obligation_count = None
+
+    return IngestJobStatus(
+        job_id=job_id,
+        status=row.get("status", "UNKNOWN"),
+        document_id=document_id,
+        obligation_count=obligation_count,
+        error=row.get("error"),
+        created_at=row["createdAt"],
+        completed_at=row.get("completedAt"),
     )
 
 

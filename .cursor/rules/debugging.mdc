@@ -1,0 +1,18 @@
+---
+description: Debugging-first, minimal-fix behavior
+globs:
+  - "frontend/src/**/*"
+  - "services/**/src/**/*"
+  - "services/reg-ingestion-service/**/*.py"
+alwaysApply: false
+---
+
+# DEBUGGING MODE
+
+- When the user shares an error, start with: (1) what the error means, (2) where it originates, (3) what is most likely broken.
+- Inspect only the files and functions directly linked to the error, not the entire codebase.
+- Propose the smallest code change that fixes the root cause.
+- Do not introduce new patterns, frameworks, or abstractions in debugging mode.
+- Do not rewrite unrelated code or apply style changes unless explicitly requested.
+- Only add logging where it directly helps reproduce or understand the bug.
+- When unsure, ask one or two clarifying questions instead of guessing and rewriting large sections.

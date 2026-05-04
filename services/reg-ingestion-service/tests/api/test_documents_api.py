@@ -15,52 +15,6 @@ from app.schemas.documents import ObligationResponse
 from tests.conftest import FakeObligationClient
 
 
-@pytest.fixture
-def patch_extraction_two_rows(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Avoid real model calls in HTTP tests — returns two structured rows before document persist."""
-
-    async def _fake_collect_structured_obligations_from_source(
-        **kwargs: object,
-    ) -> list[tuple[int, documents_router._LlmObligationItem]]:
-        _ = kwargs
-        return [
-            (
-                0,
-                documents_router._LlmObligationItem(
-                    ref="ignored",
-                    title="Test obligation one",
-                    summary="Summary one.",
-                    full_text="Full text one.",
-                    section_ref="§1",
-                    topics=["AI Governance"],
-                    ai_principles=["Accountability"],
-                    risk_rating="HIGH",
-                    effective_date=None,
-                ),
-            ),
-            (
-                0,
-                documents_router._LlmObligationItem(
-                    ref="ignored",
-                    title="Test obligation two",
-                    summary="Summary two.",
-                    full_text="Full text two.",
-                    section_ref="§2",
-                    topics=["Transparency"],
-                    ai_principles=["Transparency"],
-                    risk_rating="MEDIUM",
-                    effective_date=None,
-                ),
-            ),
-        ]
-
-    monkeypatch.setattr(
-        documents_router,
-        "collect_structured_obligations_from_source",
-        _fake_collect_structured_obligations_from_source,
-    )
-
-
 async def test_ingest_requires_file_or_url(
     async_client: AsyncClient,
     fake_obligation_client: FakeObligationClient,
@@ -75,29 +29,38 @@ async def test_ingest_rejects_whitespace_only_url(async_client: AsyncClient) -> 
     assert response.status_code == 400
 
 
-async def test_ingest_with_file_returns_two_obligations(
+async def test_ingest_with_file_returns_accepted_job(
     async_client: AsyncClient,
     fake_obligation_client: FakeObligationClient,
-    patch_extraction_two_rows: None,
 ) -> None:
     files = {"file": ("FCA_Notice.pdf", b"%PDF-1.4 test-bytes", "application/pdf")}
     response = await async_client.post("/api/documents", files=files)
 
-    assert response.status_code == 201
+    assert response.status_code == 202
     body = response.json()
-    assert body["obligation_count"] == 2
-    assert len(body["obligations"]) == 2
-    assert len(fake_obligation_client.create_document_calls) == 1
-    assert len(fake_obligation_client.create_batch_calls) == 1
-    assert len(fake_obligation_client.create_batch_calls[0]) == 2
+    assert body["status"] == "PENDING"
+    assert "job_id" in body
+    assert fake_obligation_client.create_document_calls == []
+
+    job_id = body["job_id"]
+    poll = await async_client.get(f"/api/documents/jobs/{job_id}")
+    assert poll.status_code == 200
+    assert poll.json()["status"] == "PENDING"
 
 
 @respx.mock
 async def test_ingest_with_source_url_only(
     async_client: AsyncClient,
     fake_obligation_client: FakeObligationClient,
-    patch_extraction_two_rows: None,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    published: list[dict[str, object]] = []
+
+    def capture(**kwargs: object) -> None:
+        published.append(dict(kwargs))
+
+    monkeypatch.setattr(documents_router, "publish_ingest_requested_sync", capture)
+
     respx.get("https://www.fca.org.uk/publication/example").mock(
         return_value=httpx.Response(
             200,
@@ -108,31 +71,44 @@ async def test_ingest_with_source_url_only(
     data = {"source_url": "https://www.fca.org.uk/publication/example"}
     response = await async_client.post("/api/documents", data=data)
 
-    assert response.status_code == 201
-    doc_call = fake_obligation_client.create_document_calls[0]
-    assert doc_call.url == "https://www.fca.org.uk/publication/example"
-    # Host slug should survive in the generated ref (e.g. WWW-FCA-ORG-UK-URL-…)
-    assert "FCA" in doc_call.ref.upper() or "WWW" in doc_call.ref.upper()
+    assert response.status_code == 202
+    assert published, "ingest should publish a Kafka message"
+    assert published[0]["source_url"] == "https://www.fca.org.uk/publication/example"
+    assert "FCA" in published[0]["ref"].upper() or "WWW" in published[0]["ref"].upper()
 
 
-async def test_ingest_file_plus_url_sets_document_url(
+async def test_ingest_file_plus_url_sets_source_url_in_message(
     async_client: AsyncClient,
     fake_obligation_client: FakeObligationClient,
-    patch_extraction_two_rows: None,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    published: list[dict[str, object]] = []
+
+    def capture(**kwargs: object) -> None:
+        published.append(dict(kwargs))
+
+    monkeypatch.setattr(documents_router, "publish_ingest_requested_sync", capture)
+
     files = {"file": ("doc.pdf", b"%PDF", "application/pdf")}
     data = {"source_url": "https://reg.example/rule.pdf"}
     response = await async_client.post("/api/documents", files=files, data=data)
 
-    assert response.status_code == 201
-    assert fake_obligation_client.create_document_calls[0].url == "https://reg.example/rule.pdf"
+    assert response.status_code == 202
+    assert published[0]["source_url"] == "https://reg.example/rule.pdf"
 
 
 async def test_ingest_form_overrides_metadata(
     async_client: AsyncClient,
     fake_obligation_client: FakeObligationClient,
-    patch_extraction_two_rows: None,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    published: list[dict[str, object]] = []
+
+    def capture(**kwargs: object) -> None:
+        published.append(dict(kwargs))
+
+    monkeypatch.setattr(documents_router, "publish_ingest_requested_sync", capture)
+
     files = {"file": ("x.pdf", b"%PDF", "application/pdf")}
     data = {
         "ref": "MANUAL-REF-001",
@@ -143,47 +119,47 @@ async def test_ingest_form_overrides_metadata(
     }
     response = await async_client.post("/api/documents", files=files, data=data)
 
-    assert response.status_code == 201
-    doc_call = fake_obligation_client.create_document_calls[0]
-    assert doc_call.ref == "MANUAL-REF-001"
-    assert doc_call.title == "Manual title"
-    assert doc_call.regulator == "PRA"
-    assert doc_call.doc_type == "Policy"
-    assert doc_call.ingested_by == "tester@reglens"
+    assert response.status_code == 202
+    assert published[0]["ref"] == "MANUAL-REF-001"
+    assert published[0]["title"] == "Manual title"
+    assert published[0]["regulator"] == "PRA"
+    assert published[0]["doc_type"] == "Policy"
+    assert published[0]["ingested_by"] == "tester@reglens"
 
 
-async def test_ingest_propagates_upstream_status(
+async def test_ingest_returns_503_when_kafka_publish_fails(
     async_client: AsyncClient,
     fake_obligation_client: FakeObligationClient,
-    patch_extraction_two_rows: None,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    req = httpx.Request("POST", "http://obligation/documents")
-    resp = httpx.Response(409, request=req, text="duplicate document ref")
-    fake_obligation_client.create_document_error = httpx.HTTPStatusError(
-        "conflict",
-        request=req,
-        response=resp,
-    )
+    def boom(**kwargs: object) -> None:
+        raise RuntimeError("broker unavailable")
+
+    monkeypatch.setattr(documents_router, "publish_ingest_requested_sync", boom)
 
     files = {"file": ("a.pdf", b"%PDF", "application/pdf")}
     response = await async_client.post("/api/documents", files=files)
 
-    assert response.status_code == 409
-    assert "duplicate" in response.json()["detail"].lower()
+    assert response.status_code == 503
+    assert fake_obligation_client.create_document_calls == []
 
 
 async def test_ingest_rejects_oversized_upload(
     monkeypatch: pytest.MonkeyPatch,
     async_client: AsyncClient,
 ) -> None:
-    from app.api.routers import documents as documents_router
-
     monkeypatch.setattr(documents_router, "_MAX_UPLOAD_BYTES", 8)
 
     files = {"file": ("huge.bin", b"x" * 20, "application/octet-stream")}
     response = await async_client.post("/api/documents", files=files)
 
     assert response.status_code == 413
+
+
+async def test_get_ingest_job_unknown_returns_404(async_client: AsyncClient) -> None:
+    rid = uuid4()
+    response = await async_client.get(f"/api/documents/jobs/{rid}")
+    assert response.status_code == 404
 
 
 async def test_list_obligations_for_document_ok(

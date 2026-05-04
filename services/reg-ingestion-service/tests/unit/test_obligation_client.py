@@ -1,5 +1,6 @@
 """ObligationClient HTTP behaviour — outbound calls mocked with respx."""
 
+import base64
 import json
 from uuid import UUID
 
@@ -17,7 +18,7 @@ TOKEN = "test-token"
 
 @pytest_asyncio.fixture
 async def client() -> ObligationClient:
-    c = ObligationClient(BASE, TOKEN)
+    c = ObligationClient(BASE, service_token=TOKEN)
     yield c
     await c.aclose()
 
@@ -55,6 +56,47 @@ async def test_create_document_posts_json_and_bearer(client: ObligationClient) -
     body = json.loads(sent.content.decode())
     assert body["ref"] == "R"
     assert body["title"] == "T"
+
+
+@respx.mock
+async def test_create_document_sends_runtime_demo_jwt_when_no_service_token() -> None:
+    route = respx.post(f"{BASE}/documents").mock(
+        return_value=httpx.Response(
+            201,
+            json={
+                "id": "d1000000-0000-0000-0000-000000000001",
+                "ref": "R",
+                "title": "T",
+                "regulator": "FCA",
+                "docType": None,
+                "url": None,
+                "publishedDate": None,
+                "effectiveDate": None,
+                "status": "ACTIVE",
+                "topics": None,
+                "ingestedAt": "2024-01-15T10:00:00+00:00",
+                "ingestedBy": "x",
+            },
+        )
+    )
+    client = ObligationClient(BASE)
+    try:
+        await client.create_document(DocumentCreate(ref="R", title="T", regulator="FCA"))
+    finally:
+        await client.aclose()
+
+    auth = route.calls.last.request.headers["Authorization"]
+    assert auth.startswith("Bearer ")
+    token = auth.removeprefix("Bearer ").strip()
+    parts = token.split(".")
+    assert len(parts) == 3
+    assert parts[2] == "local-signature"
+    pad = "=" * ((4 - len(parts[1]) % 4) % 4)
+    payload = json.loads(base64.urlsafe_b64decode(parts[1] + pad))
+    assert payload["iss"] == "https://demo.reglens.io"
+    assert payload["aud"] == "https://api.reglens.io"
+    assert payload["sub"] == "reg-ingestion-service"
+    assert payload["https://reglens.io/role"] == "ADMIN"
 
 
 @respx.mock
@@ -132,7 +174,7 @@ async def test_list_obligations_follows_pagination_until_last(client: Obligation
     }
 
     # Same path is called twice with different page= query params — side_effect consumes in order.
-    respx.get(f"{BASE}/documents/{did}/obligations").mock(
+    route = respx.get(f"{BASE}/documents/{did}/obligations").mock(
         side_effect=[
             httpx.Response(200, json={"content": [row], "last": False}),
             httpx.Response(200, json={"content": [row], "last": True}),
@@ -141,3 +183,6 @@ async def test_list_obligations_follows_pagination_until_last(client: Obligation
 
     out = await client.list_obligations_for_document(did, page_size=500)
     assert len(out) == 2
+    assert route.call_count == 2
+    assert route.calls[0].request.headers["Authorization"] == f"Bearer {TOKEN}"
+    assert route.calls[1].request.headers["Authorization"] == f"Bearer {TOKEN}"

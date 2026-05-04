@@ -4,7 +4,10 @@ import com.reglens.impact_service.dto.upstream.ObligationDetail;
 import com.reglens.impact_service.dto.upstream.ObligationMappingsResponse;
 
 import java.util.UUID;
+
+import com.reglens.impact_service.config.UpstreamAuthorizationHeader;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
@@ -19,9 +22,12 @@ public class ObligationClient {
 
 	public ObligationClient(
 			RestClient.Builder builder,
-			@Value("${app.obligation.service.base-url}") String baseUrl
+			@Value("${app.obligation.service.base-url}") String baseUrl,
+			UpstreamAuthorizationHeader upstreamAuth
 	) {
-		this.restClient = builder.baseUrl(baseUrl).build();
+		this.restClient = builder.baseUrl(baseUrl)
+				.defaultHeader(HttpHeaders.AUTHORIZATION, upstreamAuth.value())
+				.build();
 	}
 
 	public ObligationDetail getObligation(String obligationId) {

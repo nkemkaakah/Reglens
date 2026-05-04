@@ -28,10 +28,11 @@ services:
     container_name: reglens-reg-ingestion-service
     environment:
       OBLIGATION_SERVICE_BASE_URL: http://obligation-service:8080
-      OBLIGATION_SERVICE_TOKEN: dev-service-token-change-me
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       KAFKA_TOPIC_DOCUMENT_INGESTED: document.ingested
+      KAFKA_TOPIC_INGEST_REQUESTED: document.ingest.requested
+      REDIS_URL: redis://redis:6379/0
     ports:
       - "8000:8000"
     depends_on:
@@ -41,6 +42,29 @@ services:
         condition: service_started
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  reg-ingestion-worker:
+    build:
+      context: ../services/reg-ingestion-service
+      dockerfile: Dockerfile
+    container_name: reglens-reg-ingestion-worker
+    command: python worker.py
+    environment:
+      OBLIGATION_SERVICE_BASE_URL: http://obligation-service:8080
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_TOPIC_DOCUMENT_INGESTED: document.ingested
+      KAFKA_TOPIC_INGEST_REQUESTED: document.ingest.requested
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      obligation-service:
+        condition: service_started
 
   mapping-service:
     build:
@@ -82,7 +106,6 @@ services:
       APP_CATALOG_SERVICE_BASE_URL: http://catalog-service:8081
       APP_UPSTREAM_TIMEOUT_MS: "60000"
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      APP_SECURITY_SERVICE_TOKEN: dev-service-token-change-me
     ports:
       - "8082:8082"
     depends_on:

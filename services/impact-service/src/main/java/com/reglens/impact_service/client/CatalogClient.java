@@ -10,6 +10,9 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.UUID;
 
+import com.reglens.impact_service.config.UpstreamAuthorizationHeader;
+import org.springframework.http.HttpHeaders;
+
 import static org.springframework.http.HttpStatus.BAD_GATEWAY;
 
 @Component
@@ -19,9 +22,12 @@ public class CatalogClient {
 
 	public CatalogClient(
 			RestClient.Builder builder,
-			@Value("${app.catalog.service.base-url}") String baseUrl
+			@Value("${app.catalog.service.base-url}") String baseUrl,
+			UpstreamAuthorizationHeader upstreamAuth
 	) {
-		this.restClient = builder.baseUrl(baseUrl).build();
+		this.restClient = builder.baseUrl(baseUrl)
+				.defaultHeader(HttpHeaders.AUTHORIZATION, upstreamAuth.value())
+				.build();
 	}
 
 	public ControlSummary getControl(UUID controlId) {

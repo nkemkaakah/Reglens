@@ -52,6 +52,28 @@ export interface IngestResponse {
   obligationCount: number
 }
 
+export type IngestJobStatus =
+  | 'PENDING'
+  | 'PROCESSING'
+  | 'COMPLETED'
+  | 'FAILED'
+
+export interface IngestJobAccepted {
+  job_id: string
+  status: IngestJobStatus
+  message: string
+}
+
+export interface IngestJobStatusResponse {
+  job_id: string
+  status: IngestJobStatus
+  document_id: string | null
+  obligation_count: number | null
+  error: string | null
+  created_at: string
+  completed_at: string | null
+}
+
 /** Feature 3 — catalogue owner team (matches catalog-service JSON). */
 export interface TeamSummary {
   id: string

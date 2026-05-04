@@ -7,6 +7,8 @@ runs the extraction pipeline, then persists through this client (service token o
 
 from __future__ import annotations
 
+import base64
+import json
 import logging
 import time
 from uuid import UUID
@@ -17,6 +19,29 @@ from app.schemas.documents import DocumentCreate, DocumentResponse, ObligationCr
 
 logger = logging.getLogger(__name__)
 
+_JWT_ISS = "https://demo.reglens.io"
+_JWT_AUD = "https://api.reglens.io"
+
+
+def _b64url_json(obj: dict[str, object]) -> str:
+    raw = json.dumps(obj, separators=(",", ":")).encode("utf-8")
+    return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
+
+
+def _build_demo_service_jwt(*, sub: str, role: str, ttl_seconds: int) -> str:
+    """Unsigned JWT matching frontend/src/lib/session.ts — Java ServiceTokenAuthFilter checks iss/aud/exp only."""
+    header = {"alg": "HS256", "typ": "JWT"}
+    now = int(time.time())
+    payload: dict[str, object] = {
+        "sub": sub,
+        "aud": _JWT_AUD,
+        "iss": _JWT_ISS,
+        "iat": now,
+        "exp": now + ttl_seconds,
+        "https://reglens.io/role": role,
+    }
+    return f"{_b64url_json(header)}.{_b64url_json(payload)}.local-signature"
+
 
 class ObligationClient:
     """
@@ -25,15 +50,36 @@ class ObligationClient:
     Base URL should be the root of the Spring app, e.g. http://obligation-service:8080
     """
 
-    def __init__(self, base_url: str, service_token: str) -> None:
+    def __init__(
+        self,
+        base_url: str,
+        *,
+        service_token: str = "",
+        jwt_sub: str = "reg-ingestion-service",
+        jwt_role: str = "ADMIN",
+        jwt_ttl_seconds: int = 86400,
+    ) -> None:
         self._service_token = service_token
+        self._jwt_sub = jwt_sub
+        self._jwt_role = jwt_role
+        self._jwt_ttl_seconds = jwt_ttl_seconds
         root = base_url.rstrip("/")
         # Reasonable default timeout — LLM-heavy work stays in this service, not in these HTTP calls.
         self._http = httpx.AsyncClient(base_url=root, timeout=httpx.Timeout(60.0))
 
+    def _bearer_token(self) -> str:
+        t = self._service_token.strip()
+        if t:
+            return t
+        return _build_demo_service_jwt(
+            sub=self._jwt_sub,
+            role=self._jwt_role,
+            ttl_seconds=self._jwt_ttl_seconds,
+        )
+
     def _write_headers(self) -> dict[str, str]:
-        """Spring Security expects the shared dev/service bearer on POST routes."""
-        return {"Authorization": f"Bearer {self._service_token}"}
+        """Bearer JWT: optional env override, else demo token (iss/aud/exp) for obligation-service."""
+        return {"Authorization": f"Bearer {self._bearer_token()}"}
 
     async def aclose(self) -> None:
         """Called on app shutdown so the process does not leak sockets."""
@@ -94,7 +140,7 @@ class ObligationClient:
 
     async def list_obligations_for_document(self, document_id: UUID, *, page_size: int = 500) -> list[ObligationResponse]:
         """
-        GET /documents/{id}/obligations — public read path; used for preview after ingest.
+        GET /documents/{id}/obligations — same Bearer auth as writes (obligation-service requires authenticated).
 
         Walks every page until exhausted (rarely more than one page during Phase 1 demos).
         """
@@ -105,6 +151,7 @@ class ObligationClient:
             response = await self._http.get(
                 f"/documents/{document_id}/obligations",
                 params={"page": page, "size": page_size, "sort": "createdAt"},
+                headers=self._write_headers(),
             )
             if response.is_success:
                 logger.info(

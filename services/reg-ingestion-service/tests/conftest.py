@@ -11,14 +11,17 @@ from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
+import fakeredis
 import httpx
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
 from app.api import deps
+from app.core.config import settings
 from app.main import create_app
 from app.schemas.documents import DocumentCreate, DocumentResponse, ObligationCreate, ObligationResponse
+from app.services.job_store import configure_job_store
 
 
 class _DummyAnthropicClient:
@@ -116,8 +119,25 @@ def fake_obligation_client() -> FakeObligationClient:
 
 
 @pytest_asyncio.fixture
-async def async_client(fake_obligation_client: FakeObligationClient) -> AsyncIterator[AsyncClient]:
+async def async_client(
+    fake_obligation_client: FakeObligationClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> AsyncIterator[AsyncClient]:
+    monkeypatch.setattr(settings, "kafka_bootstrap_servers", "localhost:9092")
+    fake_redis = fakeredis.FakeRedis()
+    monkeypatch.setattr(
+        "app.main.Redis.from_url",
+        lambda _url, **_kwargs: fake_redis,
+    )
+    monkeypatch.setattr(
+        "app.api.routers.documents.publish_ingest_requested_sync",
+        lambda **kwargs: None,
+    )
+
     app = create_app()
+    # httpx ASGITransport does not run FastAPI lifespan; wire the same fake Redis the app would use.
+    configure_job_store(fake_redis)
+    app.state.redis = fake_redis
     app.dependency_overrides[deps.get_obligation_client] = lambda: fake_obligation_client
     app.dependency_overrides[deps.get_anthropic_client] = lambda: _DummyAnthropicClient()
     transport = ASGITransport(app=app)

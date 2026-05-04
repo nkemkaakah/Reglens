@@ -1,0 +1,18 @@
+---
+description: Short plan-then-implement workflow for new features
+globs:
+  - "frontend/src/**/*"
+  - "services/**/src/**/*"
+  - "services/reg-ingestion-service/**/*.py"
+alwaysApply: false
+---
+
+# SOLUTION APPROACH
+
+- When asked to implement a feature or refactor, first respond with a short numbered plan (3–7 steps).
+- Each step should map directly to a code change or file.
+- After the user confirms or edits the plan, implement it step-by-step.
+- For each step, modify only the files relevant to that step.
+- Avoid speculative features, extra abstractions, or "nice-to-have" improvements unless explicitly requested.
+- Keep each step's explanation minimal and focus on code.
+- Prefer reusing existing patterns/components over introducing new ones.

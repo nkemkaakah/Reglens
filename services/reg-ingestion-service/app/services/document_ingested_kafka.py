@@ -18,33 +18,33 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-_producer: KafkaProducer | None = None
+_document_ingested_kafka_producer: KafkaProducer | None = None
 
 
-def _producer() -> KafkaProducer | None:
-    global _producer
+def _get_document_ingested_kafka_producer() -> KafkaProducer | None:
+    global _document_ingested_kafka_producer
     if not settings.kafka_enabled:
         return None
-    if _producer is None:
+    if _document_ingested_kafka_producer is None:
         brokers = [b.strip() for b in settings.kafka_bootstrap_servers.split(",") if b.strip()]
-        _producer = KafkaProducer(
+        _document_ingested_kafka_producer = KafkaProducer(
             bootstrap_servers=brokers,
             value_serializer=lambda v: json.dumps(v).encode("utf-8"),
             key_serializer=lambda k: k.encode("utf-8") if k else None,
             linger_ms=5,
         )
         logger.info("Kafka producer initialised for document.ingested (brokers=%s)", brokers)
-    return _producer
+    return _document_ingested_kafka_producer
 
 
 def close_kafka_producer() -> None:
-    global _producer
-    if _producer is not None:
+    global _document_ingested_kafka_producer
+    if _document_ingested_kafka_producer is not None:
         try:
-            _producer.flush(timeout=10)
-            _producer.close(timeout=10)
+            _document_ingested_kafka_producer.flush(timeout=10)
+            _document_ingested_kafka_producer.close(timeout=10)
         finally:
-            _producer = None
+            _document_ingested_kafka_producer = None
             logger.info("Kafka producer closed")
 
 
@@ -56,7 +56,7 @@ def publish_document_ingested_sync(
 ) -> None:
     if not settings.kafka_enabled:
         return
-    p = _producer()
+    p = _get_document_ingested_kafka_producer()
     if p is None:
         return
     payload: dict[str, Any] = {

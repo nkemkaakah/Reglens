@@ -1,0 +1,15 @@
+---
+description: Enforce token-efficient, code-centric responses
+globs: "**/*"
+alwaysApply: true
+---
+
+# TOKEN EFFICIENCY
+
+- No yapping: do not add greetings, summaries, or closing remarks.
+- Default to code-first replies: show the patch or function before any explanation.
+- Show only the changed code or the minimal surrounding context needed to understand it.
+- Do NOT reprint entire files unless explicitly requested.
+- When multiple options exist, list them briefly, then implement the recommended one only.
+- Keep natural-language explanations under 5 short sentences unless I ask for a deep dive.
+- When a change touches many files, summarize the change set and only expand files or hunks I ask about.
