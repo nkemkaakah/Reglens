@@ -1,0 +1,81 @@
+name: CI Backend
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    paths:
+      - "services/**"
+      - ".github/workflows/ci-backend.yml"
+  push:
+    branches: [main]
+    paths:
+      - "services/**"
+      - ".github/workflows/ci-backend.yml"
+
+jobs:
+  matrix:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: obligation-service, lang: java, dir: services/obligation-service }
+          - { name: catalog-service, lang: java, dir: services/catalog-service }
+          - { name: impact-service, lang: java, dir: services/impact-service }
+          - { name: ai-registry-service, lang: java, dir: services/ai-registry-service }
+          - { name: workflow-service, lang: java, dir: services/workflow-service }
+          - { name: api-gateway, lang: java, dir: services/api-gateway }
+          - { name: mapping-service, lang: node, dir: services/mapping-service }
+          - { name: notification-service, lang: node, dir: services/notification-service }
+          - { name: reg-ingestion-service, lang: python, dir: services/reg-ingestion-service }
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        if: matrix.lang == 'java'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+          cache-dependency-path: ${{ matrix.dir }}/pom.xml
+
+      - name: Maven test
+        if: matrix.lang == 'java'
+        working-directory: ${{ matrix.dir }}
+        run: ./mvnw test -B
+
+      - name: Set up Node
+        if: matrix.lang == 'node'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: ${{ matrix.dir }}/package-lock.json
+
+      - name: npm ci and build
+        if: matrix.lang == 'node'
+        working-directory: ${{ matrix.dir }}
+        run: |
+          npm ci
+          npm run build
+
+      - name: Set up Python
+        if: matrix.lang == 'python'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: ${{ matrix.dir }}/requirements.txt
+
+      - name: pip install and pytest
+        if: matrix.lang == 'python'
+        working-directory: ${{ matrix.dir }}
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pytest
