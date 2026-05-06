@@ -320,9 +320,17 @@ This mix demonstrates you can design and operate **polyglot microservices** whil
 - **AWS** (design  optional light implementation):  
   - ECS Fargate for service deployment.  
   - RDS Postgres for the relational DB.  
-  - MSK (Managed Streaming for Apache Kafka) or Confluent Cloud for Kafka.  
+  - MSK (Managed Streaming for Apache Kafka) or Confluent Cloud for Kafka (Confluent Cloud is acceptable for low-cost short demos).  
   - S3 for document storage (uploaded PDFs).  
   - CloudWatch for logs/metrics (described, not fully implemented if out of scope).
+  - Terraform in `/infra` as the source of truth for reproducible environment creation and teardown.
+
+**Deployment approach for a side project (cost-aware):**
+
+- Run AWS as a **short-lived environment** for learning/demo purposes.
+- Deploy for 1–2 days, validate end-to-end flows, and capture demo evidence.
+- Destroy infrastructure immediately after with `terraform destroy` to avoid recurring cost.
+- Keep IaC and pipelines in-repo so operational capability remains demonstrable without paying for always-on infra.
 
 ---
 
@@ -370,12 +378,19 @@ On merge to `main` and tags:
 - Tag with commit SHA and `latest`.  
 - Push to GitHub Container Registry or ECR (via GitHub OIDC).
 
-**d) `deploy-ecs-staging.yml` (optional but great for CV)**
+**d) `deploy-ecs-staging.yml`**
 
 - Triggered on tags like `v`*.  
 - Uses AWS credentials via OIDC.  
-- Updates ECS task definitions and services for a “staging” cluster using the new image tags.  
+- Runs `terraform apply` for the staging stack and updates ECS services with new image tags.  
 - Runs a simple smoke test (e.g. call `/health` on gateway).
+
+**e) `destroy-ecs-staging.yml` (cost-control companion)**
+
+- Manually triggered after demo/learning window.
+- Uses AWS credentials via OIDC.
+- Runs `terraform destroy` for the same staging workspace to remove paid resources.
+- Persists deployment logs/artifacts in GitHub Actions for auditability.
 
 ## **3 Local development**
 

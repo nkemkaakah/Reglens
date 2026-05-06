@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { EventTimeline } from './EventTimeline'
 import { StatusBadge } from './StatusBadge'
@@ -59,6 +59,11 @@ export function AiSystemDetailDrawer({ aiSystemId, onClose }: AiSystemDetailDraw
   const [newDocContentType, setNewDocContentType] = useState('text/plain')
   const [newDocBody, setNewDocBody] = useState('')
   const [isEditing, setIsEditing] = useState(false)
+  const [prevAiSystemId, setPrevAiSystemId] = useState(aiSystemId)
+  if (aiSystemId !== prevAiSystemId) {
+    setPrevAiSystemId(aiSystemId)
+    setIsEditing(false)
+  }
 
   const [formRef, setFormRef] = useState('')
   const [formName, setFormName] = useState('')
@@ -103,10 +108,6 @@ export function AiSystemDetailDrawer({ aiSystemId, onClose }: AiSystemDetailDraw
     },
   })
   const teams = teamsSeedQuery.data ?? []
-
-  useEffect(() => {
-    setIsEditing(false)
-  }, [aiSystemId])
 
   const hydrateFormFromDetail = (d: AiSystemDetail) => {
     const f = aiSystemDetailToFormFields(d)

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { EmptyState } from '../components/EmptyState'
@@ -81,15 +81,8 @@ export function ObligationExplorerPage() {
   })
   const [page, setPage] = useState(0)
   const [size] = useState(20)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!obligationFromUrl || !UUID_RE.test(obligationFromUrl)) {
-      setSelectedId(null)
-      return
-    }
-    setSelectedId(obligationFromUrl)
-  }, [obligationFromUrl])
+  const selectedId =
+    obligationFromUrl && UUID_RE.test(obligationFromUrl) ? obligationFromUrl : null
 
   const queryParams = useMemo(() => {
     const params = new URLSearchParams()
@@ -133,12 +126,10 @@ export function ObligationExplorerPage() {
   }
 
   const openObligationRow = (id: string) => {
-    setSelectedId(id)
     syncExplorerUrl(id)
   }
 
   const closeDrawer = () => {
-    setSelectedId(null)
     syncExplorerUrl(null)
   }
 

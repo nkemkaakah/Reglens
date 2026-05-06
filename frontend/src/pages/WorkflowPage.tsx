@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { EventTimeline } from '../components/EventTimeline'
 
 const PAGE_SIZE = 15
@@ -18,10 +18,11 @@ export function WorkflowPage() {
   const [since, setSince] = useState('')
   const [until, setUntil] = useState('')
   const [page, setPage] = useState(0)
-
-  useEffect(() => {
+  const [prevFilters, setPrevFilters] = useState({ type, since, until })
+  if (prevFilters.type !== type || prevFilters.since !== since || prevFilters.until !== until) {
+    setPrevFilters({ type, since, until })
     setPage(0)
-  }, [type, since, until])
+  }
 
   const fetchPath = useMemo(() => {
     const params = new URLSearchParams()

@@ -9,3 +9,6 @@ cryptography>=3.1
 kafka-python>=2.0.2
 redis>=5.0.0
 fakeredis>=2.23.0
+pytest
+pytest-asyncio
+respx

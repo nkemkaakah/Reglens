@@ -5,7 +5,7 @@
  * annotate or filter rows against stored rejections.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import {
   apiFetchJson,
   CATALOG_API_BASE_URL,
@@ -53,14 +53,16 @@ export function ObligationMappingsSection({ obligationId }: ObligationMappingsSe
   const [rejectTarget, setRejectTarget] = useState<MappingSuggestion | null>(null)
   const [rejectReason, setRejectReason] = useState('')
 
-  useEffect(() => {
+  const [prevObligationId, setPrevObligationId] = useState(obligationId)
+  if (obligationId !== prevObligationId) {
+    setPrevObligationId(obligationId)
     setSuggestions([])
     setSelectedKeys(new Set())
     setEditingKey(null)
     setReviewerBy(import.meta.env.VITE_REGLENS_APPROVER?.trim() || 'frontend-demo')
     setRejectTarget(null)
     setRejectReason('')
-  }, [obligationId])
+  }
 
   const mappingsQuery = useQuery({
     queryKey: ['obligations', obligationId, 'mappings'],
