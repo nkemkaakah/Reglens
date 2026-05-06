@@ -2,14 +2,17 @@ package com.reglens.obligation_service.integration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.reglens.obligation_service.TestcontainersConfiguration;
+import com.reglens.obligation_service.support.TestDemoJwt;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import java.util.UUID;
 
@@ -35,8 +38,15 @@ class ObligationApiIntegrationTest {
 	private static final String SEED_DOCUMENT_ID = "d1000000-0000-0000-0000-000000000001";
 	private static final String SEED_OBLIGATION_ID = "e1000000-0000-0000-0000-000000000001";
 	private static final String STUB_CONTROL_ID = "c1000000-0000-0000-0000-000000000001";
-	/** Must match {@code app.security.service-token} in {@code src/test/resources/application.properties}. */
-	private static final String SERVICE_TOKEN = "test-service-token";
+
+	private static final String ACCESS_TOKEN = TestDemoJwt.build("integration-test@reglens", "ADMIN", 3600);
+
+	private static RequestPostProcessor bearerAuth() {
+		return request -> {
+			request.addHeader(HttpHeaders.AUTHORIZATION, "Bearer " + ACCESS_TOKEN);
+			return request;
+		};
+	}
 
 	@Autowired
 	private MockMvc mockMvc;
@@ -46,7 +56,7 @@ class ObligationApiIntegrationTest {
 
 	private String postCreateObligation(String ref) throws Exception {
 		var mvcResult = mockMvc.perform(post("/obligations")
-						.header("Authorization", "Bearer " + SERVICE_TOKEN)
+						.with(bearerAuth())
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
 								{
@@ -65,7 +75,7 @@ class ObligationApiIntegrationTest {
 	@Test
 	@DisplayName("GET /obligations returns a page containing Flyway seed obligations")
 	void listObligations_returnsSeededData() throws Exception {
-		mockMvc.perform(get("/obligations").param("size", "20"))
+		mockMvc.perform(get("/obligations").param("size", "20").with(bearerAuth()))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.content", hasSize(greaterThanOrEqualTo(3))))
 				.andExpect(jsonPath("$.totalElements").value(greaterThanOrEqualTo(3)));
@@ -74,7 +84,7 @@ class ObligationApiIntegrationTest {
 	@Test
 	@DisplayName("GET /obligations filters by status (case-insensitive)")
 	void listObligations_filtersByStatus() throws Exception {
-		mockMvc.perform(get("/obligations").param("status", "unmapped").param("size", "20"))
+		mockMvc.perform(get("/obligations").param("status", "unmapped").param("size", "20").with(bearerAuth()))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.content[?(@.ref == 'FCA-AI-2024-OB-002')]").isNotEmpty());
 	}
@@ -87,7 +97,7 @@ class ObligationApiIntegrationTest {
 		postCreateObligation(refUnmapped);
 		String idInProgress = postCreateObligation(refInProgress);
 		mockMvc.perform(post("/obligations/" + idInProgress + "/mapping-suggest-started")
-						.header("Authorization", "Bearer " + SERVICE_TOKEN))
+						.with(bearerAuth()))
 				.andExpect(status().isNoContent());
 
 		mockMvc.perform(
@@ -95,7 +105,8 @@ class ObligationApiIntegrationTest {
 								.param("status", "MAPPED")
 								.param("statusIn", "UNMAPPED,IN_PROGRESS")
 								.param("q", "IT-STATUSIN-")
-								.param("size", "50"))
+								.param("size", "50")
+								.with(bearerAuth()))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.content[*].ref", hasItem(refUnmapped)))
 				.andExpect(jsonPath("$.content[*].ref", hasItem(refInProgress)))
@@ -106,7 +117,7 @@ class ObligationApiIntegrationTest {
 	@Test
 	@DisplayName("GET /obligations filters by regulator via joined document")
 	void listObligations_filtersByRegulator() throws Exception {
-		mockMvc.perform(get("/obligations").param("regulator", "fca").param("size", "20"))
+		mockMvc.perform(get("/obligations").param("regulator", "fca").param("size", "20").with(bearerAuth()))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.content[?(@.regulator == 'FCA')]").isNotEmpty());
 	}
@@ -114,7 +125,7 @@ class ObligationApiIntegrationTest {
 	@Test
 	@DisplayName("GET /obligations filters by topic using Postgres text[] semantics")
 	void listObligations_filtersByTopic() throws Exception {
-		mockMvc.perform(get("/obligations").param("topic", "Fairness").param("size", "20"))
+		mockMvc.perform(get("/obligations").param("topic", "Fairness").param("size", "20").with(bearerAuth()))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.content.length()").value(greaterThanOrEqualTo(1)));
 	}
@@ -122,7 +133,7 @@ class ObligationApiIntegrationTest {
 	@Test
 	@DisplayName("GET /obligations filters by free-text q on title or summary")
 	void listObligations_filtersBySearchQuery() throws Exception {
-		mockMvc.perform(get("/obligations").param("q", "explain").param("size", "20"))
+		mockMvc.perform(get("/obligations").param("q", "explain").param("size", "20").with(bearerAuth()))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.content[?(@.ref == 'FCA-AI-2024-OB-001')]").isNotEmpty());
 	}
@@ -130,7 +141,7 @@ class ObligationApiIntegrationTest {
 	@Test
 	@DisplayName("GET /obligations/{id} returns obligation detail for seed id")
 	void getObligation_returnsDetail() throws Exception {
-		mockMvc.perform(get("/obligations/" + SEED_OBLIGATION_ID))
+		mockMvc.perform(get("/obligations/" + SEED_OBLIGATION_ID).with(bearerAuth()))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.id").value(SEED_OBLIGATION_ID))
 				.andExpect(jsonPath("$.ref").value("FCA-AI-2024-OB-001"))
@@ -142,14 +153,14 @@ class ObligationApiIntegrationTest {
 	@Test
 	@DisplayName("GET /obligations/{id} returns 404 for unknown id")
 	void getObligation_notFound() throws Exception {
-		mockMvc.perform(get("/obligations/" + UUID.randomUUID()))
+		mockMvc.perform(get("/obligations/" + UUID.randomUUID()).with(bearerAuth()))
 				.andExpect(status().isNotFound());
 	}
 
 	@Test
 	@DisplayName("GET /documents returns page including Flyway seed document")
 	void listDocuments_includesSeed() throws Exception {
-		mockMvc.perform(get("/documents").param("size", "20"))
+		mockMvc.perform(get("/documents").param("size", "20").with(bearerAuth()))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.content[?(@.ref == 'FCA-AI-UPDATE-2024')]").isNotEmpty());
 	}
@@ -157,7 +168,7 @@ class ObligationApiIntegrationTest {
 	@Test
 	@DisplayName("GET /documents/{id} returns seed document")
 	void getDocument_returnsDetail() throws Exception {
-		mockMvc.perform(get("/documents/" + SEED_DOCUMENT_ID))
+		mockMvc.perform(get("/documents/" + SEED_DOCUMENT_ID).with(bearerAuth()))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.id").value(SEED_DOCUMENT_ID))
 				.andExpect(jsonPath("$.ref").value("FCA-AI-UPDATE-2024"))
@@ -167,14 +178,14 @@ class ObligationApiIntegrationTest {
 	@Test
 	@DisplayName("GET /documents/{id} returns 404 for unknown id")
 	void getDocument_notFound() throws Exception {
-		mockMvc.perform(get("/documents/" + UUID.randomUUID()))
+		mockMvc.perform(get("/documents/" + UUID.randomUUID()).with(bearerAuth()))
 				.andExpect(status().isNotFound());
 	}
 
 	@Test
 	@DisplayName("GET /documents/{id}/obligations returns obligations for seed document")
 	void listObligationsForDocument_returnsLinkedRows() throws Exception {
-		mockMvc.perform(get("/documents/" + SEED_DOCUMENT_ID + "/obligations").param("size", "20"))
+		mockMvc.perform(get("/documents/" + SEED_DOCUMENT_ID + "/obligations").param("size", "20").with(bearerAuth()))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.content", hasSize(greaterThanOrEqualTo(3))))
 				.andExpect(jsonPath("$.content[?(@.documentId == '" + SEED_DOCUMENT_ID + "')]").isNotEmpty());
@@ -183,7 +194,7 @@ class ObligationApiIntegrationTest {
 	@Test
 	@DisplayName("GET /documents/{id}/obligations returns 404 when document does not exist")
 	void listObligationsForDocument_documentNotFound() throws Exception {
-		mockMvc.perform(get("/documents/" + UUID.randomUUID() + "/obligations"))
+		mockMvc.perform(get("/documents/" + UUID.randomUUID() + "/obligations").with(bearerAuth()))
 				.andExpect(status().isNotFound());
 	}
 
@@ -203,11 +214,11 @@ class ObligationApiIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("POST /documents returns 201 with body when Authorization bearer matches service token")
+	@DisplayName("POST /documents returns 201 with body when Authorization bearer is a valid demo JWT")
 	void createDocument_withToken_persists() throws Exception {
 		String ref = "IT-DOC-" + UUID.randomUUID();
 		mockMvc.perform(post("/documents")
-						.header("Authorization", "Bearer " + SERVICE_TOKEN)
+						.with(bearerAuth())
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
 								{
@@ -229,7 +240,7 @@ class ObligationApiIntegrationTest {
 	@DisplayName("POST /documents returns 400 when required fields are missing")
 	void createDocument_validationError() throws Exception {
 		mockMvc.perform(post("/documents")
-						.header("Authorization", "Bearer " + SERVICE_TOKEN)
+						.with(bearerAuth())
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("{}"))
 				.andExpect(status().isBadRequest());
@@ -257,7 +268,7 @@ class ObligationApiIntegrationTest {
 	void createObligation_withToken_persists() throws Exception {
 		String ref = "IT-OB-" + UUID.randomUUID();
 		mockMvc.perform(post("/obligations")
-						.header("Authorization", "Bearer " + SERVICE_TOKEN)
+						.with(bearerAuth())
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
 								{
@@ -286,7 +297,7 @@ class ObligationApiIntegrationTest {
 	void createObligation_ignoresRequestStatus() throws Exception {
 		String ref = "IT-OB-STATUS-" + UUID.randomUUID();
 		mockMvc.perform(post("/obligations")
-						.header("Authorization", "Bearer " + SERVICE_TOKEN)
+						.with(bearerAuth())
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
 								{
@@ -306,7 +317,7 @@ class ObligationApiIntegrationTest {
 	@DisplayName("POST /obligations returns 404 when document id does not exist")
 	void createObligation_documentNotFound() throws Exception {
 		mockMvc.perform(post("/obligations")
-						.header("Authorization", "Bearer " + SERVICE_TOKEN)
+						.with(bearerAuth())
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
 								{
@@ -326,7 +337,7 @@ class ObligationApiIntegrationTest {
 		String r1 = "IT-BATCH-" + UUID.randomUUID();
 		String r2 = "IT-BATCH-" + UUID.randomUUID();
 		mockMvc.perform(post("/obligations/batch")
-						.header("Authorization", "Bearer " + SERVICE_TOKEN)
+						.with(bearerAuth())
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
 								[
@@ -366,13 +377,13 @@ class ObligationApiIntegrationTest {
 	@DisplayName("POST /obligations/{id}/mapping-suggest-started moves UNMAPPED to IN_PROGRESS")
 	void mappingSuggestStarted_unmappedToInProgress() throws Exception {
 		String id = postCreateObligation("IT-SUGGEST-" + UUID.randomUUID());
-		mockMvc.perform(get("/obligations/" + id))
+		mockMvc.perform(get("/obligations/" + id).with(bearerAuth()))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.status").value("UNMAPPED"));
 		mockMvc.perform(post("/obligations/" + id + "/mapping-suggest-started")
-						.header("Authorization", "Bearer " + SERVICE_TOKEN))
+						.with(bearerAuth()))
 				.andExpect(status().isNoContent());
-		mockMvc.perform(get("/obligations/" + id))
+		mockMvc.perform(get("/obligations/" + id).with(bearerAuth()))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.status").value("IN_PROGRESS"));
 	}
@@ -393,18 +404,18 @@ class ObligationApiIntegrationTest {
 	void patchStatus_mappedToImplemented() throws Exception {
 		String id = postCreateObligation("IT-IMPL-" + UUID.randomUUID());
 		mockMvc.perform(post("/obligations/" + id + "/mappings/controls")
-						.header("Authorization", "Bearer " + SERVICE_TOKEN)
+						.with(bearerAuth())
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
 								[ { "controlId": "%s", "source": "MANUAL", "approvedBy": "t@reglens" } ]
 								""".formatted(STUB_CONTROL_ID)))
 				.andExpect(status().isOk());
-		mockMvc.perform(get("/obligations/" + id))
+		mockMvc.perform(get("/obligations/" + id).with(bearerAuth()))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.status").value("MAPPED"));
 
 		mockMvc.perform(patch("/obligations/" + id + "/status")
-						.header("Authorization", "Bearer " + SERVICE_TOKEN)
+						.with(bearerAuth())
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
 								{ "status": "IMPLEMENTED", "confirmedBy": "lead@reglens" }
@@ -414,7 +425,7 @@ class ObligationApiIntegrationTest {
 				.andExpect(jsonPath("$.triagedBy").value("lead@reglens"));
 
 		mockMvc.perform(patch("/obligations/" + id + "/status")
-						.header("Authorization", "Bearer " + SERVICE_TOKEN)
+						.with(bearerAuth())
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
 								{ "status": "IMPLEMENTED", "confirmedBy": "again@reglens" }
@@ -428,7 +439,7 @@ class ObligationApiIntegrationTest {
 	void patchStatus_conflictWhenUnmapped() throws Exception {
 		String id = postCreateObligation("IT-NOIMPL-" + UUID.randomUUID());
 		mockMvc.perform(patch("/obligations/" + id + "/status")
-						.header("Authorization", "Bearer " + SERVICE_TOKEN)
+						.with(bearerAuth())
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
 								{ "status": "IMPLEMENTED", "confirmedBy": "u@reglens" }

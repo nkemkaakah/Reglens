@@ -10,10 +10,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpHeaders;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import com.reglens.ai_registry_service.AiRegistryServiceApplication;
 import com.reglens.ai_registry_service.TestcontainersConfiguration;
+import com.reglens.ai_registry_service.support.TestDemoJwt;
 
 /**
  * Boots ai-registry-service against Testcontainers Postgres (with catalog FK prerequisites) + Mongo, runs Flyway, then
@@ -24,12 +27,21 @@ import com.reglens.ai_registry_service.TestcontainersConfiguration;
 @Import(TestcontainersConfiguration.class)
 class AiRegistryApiSmokeTest {
 
+	private static final String ACCESS_TOKEN = TestDemoJwt.build("integration-test@reglens", "ADMIN", 3600);
+
+	private static RequestPostProcessor bearerAuth() {
+		return request -> {
+			request.addHeader(HttpHeaders.AUTHORIZATION, "Bearer " + ACCESS_TOKEN);
+			return request;
+		};
+	}
+
 	@Autowired
 	private MockMvc mockMvc;
 
 	@Test
 	void getAiSystems_returnsSeededPage() throws Exception {
-		mockMvc.perform(get("/ai-systems").param("size", "50").param("sort", "ref,asc"))
+		mockMvc.perform(get("/ai-systems").param("size", "50").param("sort", "ref,asc").with(bearerAuth()))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.totalElements").value(greaterThanOrEqualTo(3)))
 				.andExpect(jsonPath("$.content[0].ref").value("NXB-AI-001"))
@@ -41,7 +53,7 @@ class AiRegistryApiSmokeTest {
 
 	@Test
 	void getAiSystemById_returnsDetail() throws Exception {
-		mockMvc.perform(get("/ai-systems/f1000000-0000-0000-0000-000000000001"))
+		mockMvc.perform(get("/ai-systems/f1000000-0000-0000-0000-000000000001").with(bearerAuth()))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.ref").value("NXB-AI-001"))
 				.andExpect(jsonPath("$.ownerTeamName").value("Credit Risk Technology"))

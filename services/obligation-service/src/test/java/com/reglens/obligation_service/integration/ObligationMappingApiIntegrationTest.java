@@ -2,14 +2,17 @@ package com.reglens.obligation_service.integration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.reglens.obligation_service.TestcontainersConfiguration;
+import com.reglens.obligation_service.support.TestDemoJwt;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import java.util.UUID;
 
@@ -33,7 +36,14 @@ class ObligationMappingApiIntegrationTest {
 	private static final String STUB_CONTROL_ID = "c1000000-0000-0000-0000-000000000001";
 	private static final String STUB_SYSTEM_ID = "b1000000-0000-0000-0000-000000000001";
 
-	private static final String SERVICE_TOKEN = "test-service-token";
+	private static final String ACCESS_TOKEN = TestDemoJwt.build("integration-test@reglens", "ADMIN", 3600);
+
+	private static RequestPostProcessor bearerAuth() {
+		return request -> {
+			request.addHeader(HttpHeaders.AUTHORIZATION, "Bearer " + ACCESS_TOKEN);
+			return request;
+		};
+	}
 
 	@Autowired
 	private MockMvc mockMvc;
@@ -43,7 +53,7 @@ class ObligationMappingApiIntegrationTest {
 
 	private String postCreateObligation(String ref) throws Exception {
 		var mvcResult = mockMvc.perform(post("/obligations")
-						.header("Authorization", "Bearer " + SERVICE_TOKEN)
+						.with(bearerAuth())
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
 								{
@@ -63,7 +73,7 @@ class ObligationMappingApiIntegrationTest {
 	@DisplayName("GET /obligations/{id}/mappings returns empty lists when no mappings exist")
 	void getMappings_emptyInitially() throws Exception {
 		String id = postCreateObligation("IT-MAP-EMPTY-" + UUID.randomUUID());
-		mockMvc.perform(get("/obligations/" + id + "/mappings"))
+		mockMvc.perform(get("/obligations/" + id + "/mappings").with(bearerAuth()))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.controls", hasSize(0)))
 				.andExpect(jsonPath("$.systems", hasSize(0)));
@@ -84,7 +94,7 @@ class ObligationMappingApiIntegrationTest {
 	@DisplayName("POST /obligations/{id}/mappings/controls persists then GET returns the row")
 	void postControlMappings_thenGet() throws Exception {
 		mockMvc.perform(post("/obligations/" + SEED_OBLIGATION_ID + "/mappings/controls")
-						.header("Authorization", "Bearer " + SERVICE_TOKEN)
+						.with(bearerAuth())
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
 								[
@@ -102,12 +112,12 @@ class ObligationMappingApiIntegrationTest {
 				.andExpect(jsonPath("$[0].controlId").value(STUB_CONTROL_ID))
 				.andExpect(jsonPath("$[0].source").value("AI_SUGGESTED"));
 
-		mockMvc.perform(get("/obligations/" + SEED_OBLIGATION_ID + "/mappings"))
+		mockMvc.perform(get("/obligations/" + SEED_OBLIGATION_ID + "/mappings").with(bearerAuth()))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.controls", hasSize(1)))
 				.andExpect(jsonPath("$.controls[0].controlId").value(STUB_CONTROL_ID));
 
-		mockMvc.perform(get("/obligations/" + SEED_OBLIGATION_ID))
+		mockMvc.perform(get("/obligations/" + SEED_OBLIGATION_ID).with(bearerAuth()))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.status").value("MAPPED"));
 	}
@@ -116,12 +126,12 @@ class ObligationMappingApiIntegrationTest {
 	@DisplayName("First approved control mapping promotes UNMAPPED obligation to MAPPED in one step")
 	void postControlMappings_unmappedObligation_becomesMapped() throws Exception {
 		String id = postCreateObligation("IT-MAP-UN-" + UUID.randomUUID());
-		mockMvc.perform(get("/obligations/" + id))
+		mockMvc.perform(get("/obligations/" + id).with(bearerAuth()))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.status").value("UNMAPPED"));
 
 		mockMvc.perform(post("/obligations/" + id + "/mappings/controls")
-						.header("Authorization", "Bearer " + SERVICE_TOKEN)
+						.with(bearerAuth())
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
 								[
@@ -134,7 +144,7 @@ class ObligationMappingApiIntegrationTest {
 								""".formatted(STUB_CONTROL_ID)))
 				.andExpect(status().isOk());
 
-		mockMvc.perform(get("/obligations/" + id))
+		mockMvc.perform(get("/obligations/" + id).with(bearerAuth()))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.status").value("MAPPED"));
 	}
@@ -144,7 +154,7 @@ class ObligationMappingApiIntegrationTest {
 	void postSystemMappings_thenGet() throws Exception {
 		String id = postCreateObligation("IT-MAP-SYS-" + UUID.randomUUID());
 		mockMvc.perform(post("/obligations/" + id + "/mappings/systems")
-						.header("Authorization", "Bearer " + SERVICE_TOKEN)
+						.with(bearerAuth())
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
 								[
@@ -160,11 +170,11 @@ class ObligationMappingApiIntegrationTest {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$[0].systemId").value(STUB_SYSTEM_ID));
 
-		mockMvc.perform(get("/obligations/" + id + "/mappings"))
+		mockMvc.perform(get("/obligations/" + id + "/mappings").with(bearerAuth()))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.systems", hasSize(1)));
 
-		mockMvc.perform(get("/obligations/" + id))
+		mockMvc.perform(get("/obligations/" + id).with(bearerAuth()))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.status").value("MAPPED"));
 	}
@@ -173,7 +183,7 @@ class ObligationMappingApiIntegrationTest {
 	@DisplayName("POST control mappings returns 400 for unknown control id (FK / integrity)")
 	void postControlMappings_unknownControl() throws Exception {
 		mockMvc.perform(post("/obligations/" + SEED_OBLIGATION_ID + "/mappings/controls")
-						.header("Authorization", "Bearer " + SERVICE_TOKEN)
+						.with(bearerAuth())
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("""
 								[
@@ -190,7 +200,7 @@ class ObligationMappingApiIntegrationTest {
 	@Test
 	@DisplayName("GET /obligations/{id}/mappings returns 404 when obligation does not exist")
 	void getMappings_obligationNotFound() throws Exception {
-		mockMvc.perform(get("/obligations/" + UUID.randomUUID() + "/mappings"))
+		mockMvc.perform(get("/obligations/" + UUID.randomUUID() + "/mappings").with(bearerAuth()))
 				.andExpect(status().isNotFound());
 	}
 }
