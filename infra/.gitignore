@@ -7,3 +7,4 @@ docker-compose.override.yml
 
 # Terraform working dir (if you add modules here later)
 .terraform/
+terraform/terraform.tfvars
