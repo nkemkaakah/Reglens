@@ -1,0 +1,94 @@
+# Manual Terraform apply for staging (ECS + supporting AWS stack).
+# Prerequisites: S3 backend reglens-terraform-state (eu-north-1), OIDC role (AWS_ROLE_ARN),
+# images tagged with github.sha in ECR (run docker-build-and-push first).
+
+name: Deploy ECS Staging
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: eu-north-1
+  TF_WORKING_DIR: infra/terraform
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    env:
+      TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
+      TF_VAR_anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+      TF_VAR_mongo_notifications_uri: ${{ secrets.MONGO_NOTIFICATIONS_URI }}
+      TF_VAR_mongo_workflow_uri: ${{ secrets.MONGO_WORKFLOW_URI }}
+      TF_VAR_mongo_ai_registry_uri: ${{ secrets.MONGO_AI_REGISTRY_URI }}
+      TF_VAR_image_tag: ${{ github.sha }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-session-name: reglens-staging-deploy
+          aws-region: ${{ vars.AWS_REGION || env.AWS_REGION }}
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Terraform init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform init
+
+      - name: Terraform fmt check
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform fmt -check
+
+      - name: Terraform validate
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform validate
+
+      - name: Terraform plan
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform plan -out=tfplan
+
+      - name: Terraform apply
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform apply -auto-approve tfplan
+
+      - name: Capture Terraform outputs
+        id: tf_outputs
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          echo "alb_dns=$(terraform output -raw alb_dns_name)" >> "$GITHUB_OUTPUT"
+          echo "cloudfront_domain=$(terraform output -raw cloudfront_domain_name)" >> "$GITHUB_OUTPUT"
+          echo "frontend_url=$(terraform output -raw frontend_cloudfront_url)" >> "$GITHUB_OUTPUT"
+
+      - name: Add deployment summary
+        run: |
+          {
+            echo "## Staging deployment complete"
+            echo ""
+            echo "- **Frontend (HTTPS):** ${{ steps.tf_outputs.outputs.frontend_url }}"
+            echo "- **ALB (HTTP):** http://${{ steps.tf_outputs.outputs.alb_dns }}"
+            echo "- **CloudFront host:** ${{ steps.tf_outputs.outputs.cloudfront_domain }}"
+            echo ""
+            echo "Ensure **Docker Build and Push** has run for commit \`${{ github.sha }}\` so ECS can pull images."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Wait briefly for ECS tasks to settle
+        run: sleep 60
+
+      - name: Smoke test frontend (CloudFront)
+        run: curl -fsS -o /dev/null -w "%{http_code}" "https://${{ steps.tf_outputs.outputs.cloudfront_domain }}/" | grep -q 200
+
+      - name: Smoke test API gateway health
+        run: curl -fsS "http://${{ steps.tf_outputs.outputs.alb_dns }}/actuator/health"

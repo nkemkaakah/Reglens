@@ -18,9 +18,22 @@ variable "anthropic_api_key" {
   sensitive = true
 }
 
-variable "mongo_uri" {
-  type      = string
-  sensitive = true
+variable "mongo_notifications_uri" {
+  type        = string
+  sensitive   = true
+  description = "MongoDB URI for notification-service (database in path, e.g. .../reglens_notifications)"
+}
+
+variable "mongo_workflow_uri" {
+  type        = string
+  sensitive   = true
+  description = "MongoDB URI for workflow-service (e.g. .../reglens_workflow)"
+}
+
+variable "mongo_ai_registry_uri" {
+  type        = string
+  sensitive   = true
+  description = "MongoDB URI for ai-registry-service (e.g. .../reglens_ai_registry)"
 }
 
 variable "image_tag" {

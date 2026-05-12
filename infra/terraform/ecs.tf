@@ -281,7 +281,7 @@ resource "aws_ecs_task_definition" "ai_registry_service" {
     ], local.spring_kafka_msk_iam_env)
     secrets = [
       { name = "SPRING_DATASOURCE_PASSWORD", valueFrom = aws_secretsmanager_secret.db_password.arn },
-      { name = "SPRING_DATA_MONGODB_URI", valueFrom = aws_secretsmanager_secret.mongo_uri.arn },
+      { name = "SPRING_DATA_MONGODB_URI", valueFrom = aws_secretsmanager_secret.mongo_ai_registry_uri.arn },
     ]
     logConfiguration = {
       logDriver = "awslogs"
@@ -354,7 +354,7 @@ resource "aws_ecs_task_definition" "workflow_service" {
       { name = "SPRING_KAFKA_BOOTSTRAP_SERVERS", value = aws_msk_cluster.main.bootstrap_brokers_sasl_iam },
     ], local.spring_kafka_msk_iam_env)
     secrets = [
-      { name = "SPRING_DATA_MONGODB_URI", valueFrom = aws_secretsmanager_secret.mongo_uri.arn },
+      { name = "SPRING_DATA_MONGODB_URI", valueFrom = aws_secretsmanager_secret.mongo_workflow_uri.arn },
     ]
     logConfiguration = {
       logDriver = "awslogs"
@@ -513,7 +513,7 @@ resource "aws_ecs_task_definition" "notification_service" {
       { name = "KAFKA_TOPIC_AI_SYSTEM_LIFECYCLE", value = "ai_system.lifecycle" },
     ]
     secrets = [
-      { name = "MONGO_URI", valueFrom = aws_secretsmanager_secret.mongo_uri.arn },
+      { name = "MONGO_URI", valueFrom = aws_secretsmanager_secret.mongo_notifications_uri.arn },
     ]
     logConfiguration = {
       logDriver = "awslogs"

@@ -160,7 +160,7 @@ provider "aws" {
 ```
 
 #### `variables.tf` — All configurable values
-Key variables: `aws_region` (default `eu-west-2`), `environment` (default `staging`), `db_password`, `openai_api_key`, `confluent_bootstrap_servers`, `confluent_api_key`, `confluent_api_secret`, `mongo_uri`, `image_tag` (the Git SHA from CI).
+Key variables: `aws_region` (default `eu-north-1`), `environment` (default `staging`), `db_password`, `anthropic_api_key`, `mongo_notifications_uri`, `mongo_workflow_uri`, `mongo_ai_registry_uri`, `image_tag` (the Git SHA from CI).
 
 #### `vpc.tf` — Networking
 - VPC with CIDR `10.0.0.0/16`
@@ -271,13 +271,12 @@ resource "aws_cloudfront_distribution" "frontend" {
 - `reglens-github-actions-role`: OIDC trust policy for GitHub Actions to deploy
 
 #### `secrets.tf` — Secrets Manager
-One secret per sensitive value:
+One secret per sensitive value (current stack):
 - `reglens/db_password`
-- `reglens/openai_api_key`
-- `reglens/confluent_bootstrap_servers`
-- `reglens/confluent_api_key`
-- `reglens/confluent_api_secret`
-- `reglens/mongo_uri`
+- `reglens/anthropic_api_key`
+- `reglens/mongo_notifications_uri` (notification-service — DB name in URI path)
+- `reglens/mongo_workflow_uri`
+- `reglens/mongo_ai_registry_uri`
 
 ECS task definitions reference these by ARN in the `secrets` block, so they are never in environment variables as plain text.
 
@@ -290,24 +289,28 @@ ECS task definitions reference these by ARN in the `secrets` block, so they are 
 
 ### Step 5 — Write the Deploy Pipeline
 
-#### `deploy-ecs-staging.yml`
+#### `deploy-ecs-staging.yml` (implemented under `.github/workflows/deploy-ecs-staging.yml`)
 
 Triggered manually via `workflow_dispatch` (not automatically — you control when you want to spin up AWS and spend money).
 
 Steps:
 1. Checkout repo
-2. Configure AWS credentials via OIDC
-3. Set up Terraform
-4. `terraform init`
-5. `terraform plan -var="image_tag=${{ github.sha }}" -out=tfplan`
-6. `terraform apply tfplan`
-7. Extract ALB DNS and CloudFront URL from Terraform outputs
-8. Print them as GitHub Actions step summary so you can click straight to the live app
-9. Run smoke tests: `curl` the API gateway health endpoint and the CloudFront URL
+2. Configure AWS credentials via OIDC (`AWS_ROLE_ARN`)
+3. Set up Terraform (`terraform_wrapper: false` so `terraform output -raw` is clean)
+4. `terraform init` (S3 backend: `reglens-terraform-state`, key `staging/terraform.tfstate`, region `eu-north-1` per `infra/terraform/main.tf`)
+5. `terraform fmt -check` and `terraform validate`
+6. `terraform plan -out=tfplan` — sensitive inputs via `TF_VAR_*` from GitHub secrets (not echoed on the command line)
+7. `terraform apply -auto-approve tfplan`
+8. Capture outputs: `alb_dns_name`, `cloudfront_domain_name`, `frontend_cloudfront_url`
+9. Write a GitHub Actions step summary with those URLs
+10. Short wait, then smoke tests: HTTPS `GET /` on CloudFront; HTTP `GET /actuator/health` on the ALB (api-gateway default target)
 
-**One-time prerequisite** before running this:
-- Create S3 bucket for Terraform state manually: `aws s3 mb s3://reglens-terraform-state --region eu-west-2`
-- Create GitHub secrets: `AWS_ROLE_ARN`, `DB_PASSWORD`, `OPENAI_API_KEY`, `CONFLUENT_BOOTSTRAP_SERVERS`, `CONFLUENT_API_KEY`, `CONFLUENT_API_SECRET`, `MONGO_URI`
+**Run order:** push images for the same commit first (**Docker Build and Push** tags `reglens-<service>:${{ github.sha }}`), then run this deploy so ECS can pull those tags.
+
+**One-time prerequisites** before running this:
+- Create S3 bucket for Terraform state: `aws s3 mb s3://reglens-terraform-state --region eu-north-1` (must match `main.tf` backend region)
+- GitHub repository variable (optional): `AWS_REGION` — defaults to `eu-north-1` in the workflow if unset
+- GitHub secrets: `AWS_ROLE_ARN`, `DB_PASSWORD`, `ANTHROPIC_API_KEY`, `MONGO_NOTIFICATIONS_URI`, `MONGO_WORKFLOW_URI`, `MONGO_AI_REGISTRY_URI` (matches `infra/terraform/variables.tf`)
 
 ---
 
