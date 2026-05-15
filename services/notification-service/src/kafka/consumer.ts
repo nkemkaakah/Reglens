@@ -1,4 +1,5 @@
 import { Kafka, logLevel, type Consumer } from 'kafkajs'
+import { createMechanism } from '@jm18457/kafkajs-msk-iam-authentication-mechanism'
 import { config, KAFKA_TOPICS } from '../config.js'
 import { log } from '../log.js'
 import { fanOut } from './fanOut.js'
@@ -10,10 +11,15 @@ function createConsumer(): Consumer {
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean)
+  const useMskIam = process.env.KAFKA_USE_IAM === 'true'
   const kafka = new Kafka({
     clientId: 'reglens-notification-service',
     brokers,
     logLevel: logLevel.NOTHING,
+    ...(useMskIam && {
+      ssl: true,
+      sasl: createMechanism({ region: process.env.AWS_REGION ?? 'eu-north-1' }),
+    }),
   })
   return kafka.consumer({ groupId: 'reglens-notification-service' })
 }

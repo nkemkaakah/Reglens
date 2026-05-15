@@ -13,6 +13,7 @@ locals {
     { name = "SPRING_KAFKA_PROPERTIES_SECURITY_PROTOCOL", value = "SASL_SSL" },
     { name = "SPRING_KAFKA_PROPERTIES_SASL_MECHANISM", value = "AWS_MSK_IAM" },
     { name = "SPRING_KAFKA_PROPERTIES_SASL_JAAS_CONFIG", value = "software.amazon.msk.auth.iam.IAMLoginModule required;" },
+    { name = "SPRING_KAFKA_PROPERTIES_SASL_CLIENT_CALLBACK_HANDLER_CLASS", value = "software.amazon.msk.auth.iam.IAMClientCallbackHandler" },
   ]
 }
 
@@ -429,6 +430,7 @@ resource "aws_ecs_task_definition" "mapping_service" {
       { name = "CATALOG_SERVICE_BASE_URL", value = "${local.alb_base_url}/api/catalog" },
       { name = "OBLIGATION_SERVICE_TOKEN", value = "dev-service-token-change-me" },
       { name = "KAFKA_BROKERS", value = aws_msk_cluster.main.bootstrap_brokers_sasl_iam },
+      { name = "KAFKA_USE_IAM", value = "true" },
       { name = "KAFKA_TOPIC_MAPPED", value = "obligation.mapped" },
       { name = "KAFKA_TOPIC_MAPPING_SUGGESTED", value = "mapping.suggested" },
     ]
@@ -505,6 +507,7 @@ resource "aws_ecs_task_definition" "notification_service" {
     environment = [
       { name = "PORT", value = "3001" },
       { name = "KAFKA_BROKERS", value = aws_msk_cluster.main.bootstrap_brokers_sasl_iam },
+      { name = "KAFKA_USE_IAM", value = "true" },
       { name = "REDIS_URL", value = "redis://${aws_elasticache_cluster.redis.cache_nodes[0].address}:6379" },
       { name = "KAFKA_TOPIC_MAPPED", value = "obligation.mapped" },
       { name = "KAFKA_TOPIC_MAPPING_SUGGESTED", value = "mapping.suggested" },

@@ -1,4 +1,5 @@
 import { Kafka, logLevel, type Producer } from 'kafkajs'
+import { createMechanism } from '@jm18457/kafkajs-msk-iam-authentication-mechanism'
 import { config } from '../config.js'
 import { log } from '../log.js'
 
@@ -10,10 +11,15 @@ function createProducer(): Producer {
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean)
+  const useMskIam = process.env.KAFKA_USE_IAM === 'true'
   const kafka = new Kafka({
     clientId: 'reglens-mapping-service',
     brokers,
     logLevel: logLevel.NOTHING,
+    ...(useMskIam && {
+      ssl: true,
+      sasl: createMechanism({ region: process.env.AWS_REGION ?? 'eu-north-1' }),
+    }),
   })
   return kafka.producer()
 }

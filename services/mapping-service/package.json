@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.90.0",
+    "@jm18457/kafkajs-msk-iam-authentication-mechanism": "^4.0.0",
     "dotenv": "^16.4.5",
     "express": "^4.21.2",
     "kafkajs": "^2.2.4",

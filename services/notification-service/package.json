@@ -9,6 +9,7 @@
     "dev": "tsx watch src/index.ts"
   },
   "dependencies": {
+    "@jm18457/kafkajs-msk-iam-authentication-mechanism": "^4.0.0",
     "dotenv": "^16.4.5",
     "express": "^4.21.2",
     "ioredis": "^5.4.2",
