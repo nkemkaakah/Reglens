@@ -71,6 +71,32 @@ jobs:
           echo "alb_dns=$(terraform output -raw alb_dns_name)" >> "$GITHUB_OUTPUT"
           echo "cloudfront_domain=$(terraform output -raw cloudfront_domain_name)" >> "$GITHUB_OUTPUT"
           echo "frontend_url=$(terraform output -raw frontend_cloudfront_url)" >> "$GITHUB_OUTPUT"
+          echo "frontend_bucket=$(terraform output -raw frontend_bucket_name)" >> "$GITHUB_OUTPUT"
+          echo "cf_distribution_id=$(terraform output -raw frontend_cloudfront_distribution_id)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build and deploy frontend
+        working-directory: frontend
+        env:
+          VITE_API_GATEWAY_URL: http://${{ steps.tf_outputs.outputs.alb_dns }}
+        run: |
+          npm ci
+          npm run build
+          aws s3 sync dist "s3://${{ steps.tf_outputs.outputs.frontend_bucket }}/" --delete
+          INVALIDATION_ID=$(aws cloudfront create-invalidation \
+            --distribution-id "${{ steps.tf_outputs.outputs.cf_distribution_id }}" \
+            --paths "/*" \
+            --query 'Invalidation.Id' \
+            --output text)
+          aws cloudfront wait invalidation-completed \
+            --distribution-id "${{ steps.tf_outputs.outputs.cf_distribution_id }}" \
+            --id "$INVALIDATION_ID"
 
       - name: Add deployment summary
         run: |

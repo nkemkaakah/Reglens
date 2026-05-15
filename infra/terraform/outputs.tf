@@ -18,6 +18,11 @@ output "frontend_cloudfront_url" {
   value       = "https://${aws_cloudfront_distribution.frontend.domain_name}"
 }
 
+output "frontend_cloudfront_distribution_id" {
+  description = "CloudFront distribution ID (for cache invalidation from CI)"
+  value       = aws_cloudfront_distribution.frontend.id
+}
+
 output "alb_dns_name" {
   description = "Application Load Balancer DNS name for backend APIs"
   value       = aws_lb.main.dns_name
