@@ -125,6 +125,14 @@ resource "aws_iam_role_policy" "ecs_task_msk" {
           "kafka-cluster:AlterTopic"
         ]
         Resource = "arn:aws:kafka:${var.aws_region}:${data.aws_caller_identity.current.account_id}:topic/${aws_msk_cluster.main.cluster_name}/${aws_msk_cluster.main.cluster_uuid}/*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "kafka-cluster:DescribeGroup",
+          "kafka-cluster:AlterGroup"
+        ]
+        Resource = "arn:aws:kafka:${var.aws_region}:${data.aws_caller_identity.current.account_id}:group/${aws_msk_cluster.main.cluster_name}/${aws_msk_cluster.main.cluster_uuid}/*"
       }
     ]
   })
