@@ -168,7 +168,7 @@ def main() -> None:
         enable_auto_commit=True,
         **kafka_iam_kwargs(),
     )
-    logger.info("Worker subscribed topic=%s brokers=%s", settings.kafka_topic_ingest_requested, brokers)
+    logger.info("Worker subscribed topic=%s brokers=%s", settings.kafka_topic_ingest_requested, settings.kafka_bootstrap_servers)
 
     for message in consumer:
         try:
