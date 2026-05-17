@@ -1,0 +1,67 @@
+name: Destroy ECS Staging
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type DESTROY to confirm teardown of all staging infrastructure"
+        required: true
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: eu-north-1
+  TF_WORKING_DIR: infra/terraform
+
+jobs:
+  destroy:
+    if: github.event.inputs.confirm == 'DESTROY'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    env:
+      TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
+      TF_VAR_anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+      TF_VAR_mongo_notifications_uri: ${{ secrets.MONGO_NOTIFICATIONS_URI }}
+      TF_VAR_mongo_workflow_uri: ${{ secrets.MONGO_WORKFLOW_URI }}
+      TF_VAR_mongo_ai_registry_uri: ${{ secrets.MONGO_AI_REGISTRY_URI }}
+      TF_VAR_image_tag: latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-session-name: reglens-staging-destroy
+          aws-region: ${{ vars.AWS_REGION || env.AWS_REGION }}
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Terraform init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform init
+
+      - name: Terraform destroy
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform destroy -auto-approve
+
+      - name: Teardown summary
+        run: |
+          {
+            echo "## Staging infrastructure destroyed"
+            echo ""
+            echo "All Terraform-managed resources have been torn down."
+            echo ""
+            echo "> **Note:** The S3 state bucket and ECR repositories with existing images"
+            echo "> are not deleted by Terraform automatically. Remove them manually if needed:"
+            echo "> - S3: \`reglens-terraform-state\`"
+            echo "> - ECR: one repo per service in \`eu-north-1\`"
+          } >> "$GITHUB_STEP_SUMMARY"
