@@ -588,6 +588,8 @@ resource "aws_ecs_task_definition" "reg_ingestion_service" {
     environment = [
       { name = "OBLIGATION_SERVICE_BASE_URL", value = "${local.alb_base_url}/api/obligations" },
       { name = "KAFKA_BOOTSTRAP_SERVERS", value = aws_msk_cluster.main.bootstrap_brokers_sasl_iam },
+      { name = "KAFKA_USE_IAM", value = "true" },
+      { name = "AWS_REGION", value = var.aws_region },
       { name = "KAFKA_TOPIC_DOCUMENT_INGESTED", value = "document.ingested" },
       { name = "KAFKA_TOPIC_INGEST_REQUESTED", value = "document.ingest.requested" },
       { name = "REDIS_URL", value = "redis://${aws_elasticache_cluster.redis.cache_nodes[0].address}:6379/0" },
@@ -661,6 +663,8 @@ resource "aws_ecs_task_definition" "reg_ingestion_worker" {
     environment = [
       { name = "OBLIGATION_SERVICE_BASE_URL", value = "${local.alb_base_url}/api/obligations" },
       { name = "KAFKA_BOOTSTRAP_SERVERS", value = aws_msk_cluster.main.bootstrap_brokers_sasl_iam },
+      { name = "KAFKA_USE_IAM", value = "true" },
+      { name = "AWS_REGION", value = var.aws_region },
       { name = "KAFKA_TOPIC_DOCUMENT_INGESTED", value = "document.ingested" },
       { name = "KAFKA_TOPIC_INGEST_REQUESTED", value = "document.ingest.requested" },
       { name = "REDIS_URL", value = "redis://${aws_elasticache_cluster.redis.cache_nodes[0].address}:6379/0" },

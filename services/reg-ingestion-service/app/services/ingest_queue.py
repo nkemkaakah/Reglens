@@ -13,6 +13,7 @@ from uuid import UUID
 from kafka import KafkaProducer
 
 from app.core.config import settings
+from app.services.kafka_client import kafka_iam_kwargs
 
 logger = logging.getLogger(__name__)
 
@@ -24,14 +25,13 @@ def _get_ingest_requested_kafka_producer() -> KafkaProducer | None:
     if not settings.kafka_enabled:
         return None
     if _ingest_requested_kafka_producer is None:
-        brokers = [b.strip() for b in settings.kafka_bootstrap_servers.split(",") if b.strip()]
         _ingest_requested_kafka_producer = KafkaProducer(
-            bootstrap_servers=brokers,
             value_serializer=lambda v: json.dumps(v).encode("utf-8"),
             key_serializer=lambda k: k.encode("utf-8") if k else None,
             linger_ms=5,
+            **kafka_iam_kwargs(),
         )
-        logger.info("Kafka producer initialised for document.ingest.requested (brokers=%s)", brokers)
+        logger.info("Kafka producer initialised for document.ingest.requested (brokers=%s)", settings.kafka_bootstrap_servers)
     return _ingest_requested_kafka_producer
 
 

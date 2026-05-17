@@ -24,6 +24,7 @@ from app.api.routers.documents import (
 from app.core.config import settings
 from app.schemas.documents import DocumentCreate
 from app.services.document_ingested_kafka import publish_document_ingested_sync
+from app.services.kafka_client import kafka_iam_kwargs
 from app.services.job_store import (
     configure_job_store,
     delete_source_bytes,
@@ -159,14 +160,13 @@ def main() -> None:
 
     configure_job_store(Redis.from_url(settings.redis_url))
 
-    brokers = [b.strip() for b in settings.kafka_bootstrap_servers.split(",") if b.strip()]
     consumer = KafkaConsumer(
         settings.kafka_topic_ingest_requested,
         group_id="reg-ingestion-workers",
-        bootstrap_servers=brokers,
         value_deserializer=lambda m: json.loads(m.decode("utf-8")),
         auto_offset_reset="earliest",
         enable_auto_commit=True,
+        **kafka_iam_kwargs(),
     )
     logger.info("Worker subscribed topic=%s brokers=%s", settings.kafka_topic_ingest_requested, brokers)
 
