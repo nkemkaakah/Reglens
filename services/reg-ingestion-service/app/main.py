@@ -52,8 +52,8 @@ def create_app() -> FastAPI:
     )
     logging.getLogger(__name__).info("Starting %s", settings.app_name)
 
-    @application.get("/")
-    async def root_health() -> dict[str, str]:
+    @application.get("/health")
+    async def health() -> dict[str, str]:
         return {"service": settings.app_name, "status": "UP"}
 
     application.include_router(api_router, prefix="/api")
