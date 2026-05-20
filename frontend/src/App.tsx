@@ -6,6 +6,7 @@ import { ControlsPage } from './pages/ControlsPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { ImpactDashboardPage } from './pages/ImpactDashboardPage'
 import { IngestionPage } from './pages/IngestionPage'
+import { LandingPage } from './pages/LandingPage'
 import { LoginPage } from './pages/LoginPage'
 import { MappingsWorkQueuePage } from './pages/MappingsWorkQueuePage'
 import { ObligationExplorerPage } from './pages/ObligationExplorerPage'
@@ -24,9 +25,9 @@ function ProtectedRoutes() {
 function App() {
   return (
     <Routes>
+      <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route element={<ProtectedRoutes />}>
-        <Route index element={<Navigate replace to="/dashboard" />} />
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route
           path="/ingestion"

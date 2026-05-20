@@ -80,6 +80,7 @@ docker-compose.override.yml
 **/docker-compose.override.yml
 
 # --- IDE & editors ---
+.cursor/
 .idea/
 *.suo
 *.ntvs*
@@ -94,4 +95,4 @@ docker-compose.override.yml
 *.dump
 
 # --- Local / private planning (not shared in repo) ---
-docs/IMPLEMENTATION_PLAN.md
+docs/

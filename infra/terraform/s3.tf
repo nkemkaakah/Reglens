@@ -3,7 +3,8 @@
 
 # ─── Frontend — private; CloudFront OAC policy added with cloudfront.tf ──────
 resource "aws_s3_bucket" "frontend" {
-  bucket = "reglens-frontend-${data.aws_caller_identity.current.account_id}"
+  bucket        = "reglens-frontend-${data.aws_caller_identity.current.account_id}"
+  force_destroy = true
 
   tags = { Name = "reglens-frontend-${var.environment}" }
 }
@@ -37,7 +38,8 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "frontend" {
 
 # ─── Documents — private PDFs/objects; ARN matches iam.tf ecs_task_s3 ───────
 resource "aws_s3_bucket" "documents" {
-  bucket = "reglens-documents-${data.aws_caller_identity.current.account_id}"
+  bucket        = "reglens-documents-${data.aws_caller_identity.current.account_id}"
+  force_destroy = true
 
   tags = { Name = "reglens-documents-${var.environment}" }
 }
