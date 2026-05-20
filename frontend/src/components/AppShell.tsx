@@ -18,6 +18,7 @@ type NavItem = {
 }
 
 const navItems: NavItem[] = [
+  { label: 'Home', path: '/dashboard' },
   { label: 'Regulatory Ingestion', path: '/ingestion' },
   { label: 'Obligation Explorer', path: '/obligations' },
   { label: 'Controls Catalogue', path: '/controls' },

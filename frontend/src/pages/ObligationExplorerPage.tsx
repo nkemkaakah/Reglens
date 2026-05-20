@@ -71,14 +71,14 @@ export function ObligationExplorerPage() {
   const panelFromUrl = searchParams.get(PANEL_PARAM)?.trim() ?? ''
   const initialDrawerPanel = parsePanel(panelFromUrl)
 
-  const [filters, setFilters] = useState<Filters>({
-    status: '',
-    riskRating: '',
-    regulator: '',
-    topic: '',
-    aiPrinciple: '',
-    q: '',
-  })
+  const [filters, setFilters] = useState<Filters>(() => ({
+    status: (searchParams.get('status') ?? '') as ObligationStatus | '',
+    riskRating: (searchParams.get('riskRating') ?? '') as RiskRating | '',
+    regulator: searchParams.get('regulator') ?? '',
+    topic: searchParams.get('topic') ?? '',
+    aiPrinciple: searchParams.get('aiPrinciple') ?? '',
+    q: searchParams.get('q') ?? '',
+  }))
   const [page, setPage] = useState(0)
   const [size] = useState(20)
   const selectedId =

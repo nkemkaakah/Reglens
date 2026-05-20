@@ -3,6 +3,7 @@ import { AppShell } from './components/AppShell'
 import { useAuth } from './hooks/useAuth'
 import { AiRegistryPage } from './pages/AiRegistryPage'
 import { ControlsPage } from './pages/ControlsPage'
+import { DashboardPage } from './pages/DashboardPage'
 import { ImpactDashboardPage } from './pages/ImpactDashboardPage'
 import { IngestionPage } from './pages/IngestionPage'
 import { LoginPage } from './pages/LoginPage'
@@ -25,7 +26,8 @@ function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route element={<ProtectedRoutes />}>
-        <Route index element={<Navigate replace to="/ingestion" />} />
+        <Route index element={<Navigate replace to="/dashboard" />} />
+        <Route path="/dashboard" element={<DashboardPage />} />
         <Route
           path="/ingestion"
           element={
@@ -44,7 +46,7 @@ function App() {
         <Route path="/impact" element={<ImpactDashboardPage />} />
         <Route path="/ai-registry" element={<AiRegistryPage />} />
         <Route path="/workflow" element={<WorkflowPage />} />
-        <Route path="*" element={<Navigate replace to="/ingestion" />} />
+        <Route path="*" element={<Navigate replace to="/dashboard" />} />
       </Route>
     </Routes>
   )

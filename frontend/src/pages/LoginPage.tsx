@@ -21,7 +21,7 @@ export function LoginPage() {
               className="w-full rounded-lg border border-app-border bg-app-bg px-4 py-3 text-left transition hover:border-brand hover:bg-brand-muted"
               onClick={() => {
                 beginSession(persona.role)
-                navigate('/ingestion', { replace: true })
+                navigate('/dashboard', { replace: true })
               }}
             >
               <p className="text-sm font-semibold">{persona.name}</p>

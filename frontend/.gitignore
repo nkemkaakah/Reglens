@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Local reference notes (not for the repo)
+src/local/
+
 # Environment (Vite reads .env*; keep examples tracked)
 .env
 .env.*
